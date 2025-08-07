@@ -1,0 +1,256 @@
+/* CSS Styles for Survey Application */
+
+.survey-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.survey-container.error {
+  color: #d32f2f;
+  background-color: #ffebee;
+  padding: 20px;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.survey-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.survey-header h1 {
+  color: #333;
+  margin-bottom: 20px;
+}
+
+.question-container {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 25px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.question-container h2 {
+  color: #007bff;
+  margin-top: 0;
+  border-bottom: 1px solid #e9ecef;
+  padding-bottom: 10px;
+}
+
+.question {
+  margin: 20px 0;
+}
+
+.question-prompt {
+  font-size: 1.2em;
+  margin-bottom: 15px;
+  color: #495057;
+}
+
+.question-help {
+  color: #6c757d;
+  font-style: italic;
+  margin-bottom: 15px;
+}
+
+.question-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 15px 0;
+}
+
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 15px 0;
+}
+
+.choice-option {
+  display: flex;
+  align-items: center;
+  padding: 12px 15px;
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.choice-option:hover {
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.choice-option input[type="radio"],
+.choice-option input[type="checkbox"] {
+  margin-right: 10px;
+  transform: scale(1.3);
+}
+
+.choice-label {
+  flex-grow: 1;
+}
+
+.choice-value {
+  color: #6c757d;
+  font-size: 0.9em;
+}
+
+.scale-input {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  margin: 20px 0;
+}
+
+.scale-slider {
+  width: 100%;
+  height: 8px;
+  border-radius: 5px;
+  background: #dee2e6;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+.scale-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #007bff;
+  cursor: pointer;
+}
+
+.scale-value {
+  font-size: 1.5em;
+  font-weight: bold;
+  color: #007bff;
+}
+
+.scale-labels {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  color: #6c757d;
+}
+
+.text-input textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 1em;
+  resize: vertical;
+}
+
+.text-input textarea:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+  outline: none;
+}
+
+.submit-button,
+.consent-button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  font-size: 1em;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 15px;
+  transition: background-color 0.2s;
+}
+
+.submit-button:hover,
+.consent-button:hover {
+  background-color: #0069d9;
+}
+
+.submit-button:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+.navigation-buttons {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 30px;
+}
+
+.navigation-buttons button {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  font-size: 1em;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.navigation-buttons button:not(:disabled):hover {
+  background-color: #5a6268;
+}
+
+.navigation-buttons button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.progress-container {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin: 20px 0;
+}
+
+.progress-bar {
+  flex-grow: 1;
+  height: 20px;
+  background-color: #e9ecef;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background-color: #28a745;
+  transition: width 0.3s ease;
+}
+
+.progress-value {
+  font-weight: bold;
+  color: #495057;
+  min-width: 50px;
+  text-align: right;
+}
+
+.consent-form {
+  background: white;
+  border-radius: 8px;
+  padding: 30px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  text-align: center;
+}
+
+.consent-content {
+  text-align: left;
+  margin: 25px 0;
+}
+
+.consent-content ul {
+  padding-left: 20px;
+}
+
+.consent-content li {
+  margin-bottom: 10px;
+}
