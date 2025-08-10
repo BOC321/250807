@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
+import SurveyResults from '../../../components/SurveyResults';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -22,6 +23,14 @@ export default function TakeSurveyPage() {
   // New state for question-by-question flow
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [flattenedQuestions, setFlattenedQuestions] = useState([]);
+  const [surveyCompleted, setSurveyCompleted] = useState(false);
+  const [categoryScores, setCategoryScores] = useState({});
+  const [userResponses, setUserResponses] = useState({});
+  const [scoreRanges, setScoreRanges] = useState([]);
+  const [email, setEmail] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailError, setEmailError] = useState('');
 
   const handleResponseChange = (questionId, value) => {
     setResponses(prev => ({
@@ -137,8 +146,29 @@ export default function TakeSurveyPage() {
   const handleNext = () => {
     // Validate current question if required
     const currentQuestion = flattenedQuestions[currentQuestionIndex];
+    
+    // Check if the question is required and empty
     if (currentQuestion.required && (!responses[currentQuestion.id] || responses[currentQuestion.id] === '')) {
-      setError('This question is required');
+      setError('You must select an answer before clicking on Next');
+      
+      // Clear the error after 5 seconds
+      setTimeout(() => {
+        setError(null);
+      }, 5000);
+      
+      return;
+    }
+    
+    // For checkbox type, ensure at least one option is selected if required
+    if (currentQuestion.required && currentQuestion.type === 'checkbox' && 
+        (!responses[currentQuestion.id] || responses[currentQuestion.id].length === 0)) {
+      setError('You must select an answer before clicking on Next');
+      
+      // Clear the error after 5 seconds
+      setTimeout(() => {
+        setError(null);
+      }, 5000);
+      
       return;
     }
     
@@ -301,6 +331,32 @@ export default function TakeSurveyPage() {
       
       if (answersError) throw answersError;
       
+      // Calculate category scores
+      const calculatedCategoryScores = {};
+      
+      // Initialize scores for each category
+      categories.forEach(category => {
+        calculatedCategoryScores[category.id] = 0;
+      });
+      
+      // Sum scores based on responses
+      for (const questionId in responses) {
+        const question = flattenedQuestions.find(q => q.id === questionId);
+        
+        if (question && question.scorable) {
+          const categoryId = question.categoryTitle;
+          const score = parseInt(responses[questionId]) || 0;
+          
+          if (calculatedCategoryScores[categoryId] !== undefined) {
+            calculatedCategoryScores[categoryId] += score;
+          }
+        }
+      }
+      
+      setCategoryScores(calculatedCategoryScores);
+      setUserResponses(responses);
+      setSurveyCompleted(true);
+      
       // Redirect to a thank you page
       router.push({
         pathname: '/surveys/thank-you',
@@ -310,6 +366,41 @@ export default function TakeSurveyPage() {
       console.error('Error in handleSubmit:', err);
       setError(err.message);
       setSubmitting(false);
+    }
+  };
+
+  const handleEmailSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setEmailSent(false);
+    setEmailError('');
+    
+    try {
+      // Validate email format
+      if (!/\S+@\S+\.\S+/.test(email)) {
+        setEmailError('Invalid email address');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Send email with report
+      const { data, error } = await supabase
+        .functions
+        .invoke('send-survey-report', {
+          body: {
+            surveyId: id,
+            email: email
+          }
+        });
+      
+      if (error) throw error;
+      
+      setEmailSent(true);
+    } catch (err) {
+      console.error('Error sending email:', err);
+      setEmailError('Failed to send report. Please try again later.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -460,73 +551,90 @@ export default function TakeSurveyPage() {
         <h2>{currentQuestion.categoryTitle}</h2>
       </div>
       
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: '2rem' }}>
-          <div style={{ marginBottom: '0.5rem' }}>
-            <label style={{ fontWeight: 'bold' }}>
-              {currentQuestion.prompt}
-              {currentQuestion.required && <span style={{ color: 'red' }}> *</span>}
-            </label>
-          </div>
-          {renderQuestion(currentQuestion)}
-        </div>
-        
-        {error && (
-          <div style={{ color: 'red', marginBottom: '1rem' }}>
-            {error}
-          </div>
-        )}
-        
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <button
-            type="button"
-            onClick={handlePrevious}
-            disabled={currentQuestionIndex === 0}
-            style={{
-              padding: '0.75rem 1.5rem',
-              backgroundColor: currentQuestionIndex === 0 ? '#6c757d' : '#6f42c1',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: currentQuestionIndex === 0 ? 'default' : 'pointer'
-            }}
-          >
-            Previous
-          </button>
+      {surveyCompleted ? (
+        <div className="survey-completed">
+          <SurveyResults 
+            survey={survey}
+            categoryScores={categoryScores}
+            userResponses={userResponses}
+            scoreRanges={scoreRanges}
+          />
           
-          {currentQuestionIndex === flattenedQuestions.length - 1 ? (
-            <button
-              type="submit"
-              disabled={submitting}
-              style={{
-                padding: '0.75rem 1.5rem',
-                backgroundColor: '#28a745',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            >
-              {submitting ? 'Submitting...' : 'Submit Survey'}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleNext}
-              style={{
-                padding: '0.75rem 1.5rem',
-                backgroundColor: '#007bff',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            >
-              Next
-            </button>
-          )}
+          <div className="email-form">
+            <h2>Get Your Report via Email</h2>
+            <p>Enter your email address to receive a copy of your report:</p>
+            <form onSubmit={handleEmailSubmit}>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your.email@example.com"
+                required
+              />
+              <button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? 'Sending...' : 'Send Report'}
+              </button>
+            </form>
+            {emailSent && <p className="success-message">Report sent successfully!</p>}
+            {emailError && <p className="error-message">{emailError}</p>}
+          </div>
         </div>
-      </form>
+      ) : (
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: '2rem' }}>
+            <div style={{ marginBottom: '0.5rem' }}>
+              <label style={{ fontWeight: 'bold' }}>
+                {currentQuestion.prompt}
+                {currentQuestion.required && <span style={{ color: 'red' }}> *</span>}
+              </label>
+            </div>
+            {renderQuestion(currentQuestion)}
+          </div>
+          
+          {error && (
+            <div style={{ color: 'red', marginBottom: '1rem' }}>
+              {error}
+            </div>
+          )}
+          
+          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+            {/* Next/Submit button */}
+            <div>
+              {currentQuestionIndex === flattenedQuestions.length - 1 ? (
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    backgroundColor: '#28a745',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {submitting ? 'Submitting...' : 'Submit Survey'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    backgroundColor: '#007bff',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Next
+                </button>
+              )}
+            </div>
+          </div>
+        </form>
+      )}
     </div>
   );
 }

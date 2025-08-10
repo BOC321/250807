@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { createClient } from '@supabase/supabase-js';
+import ScoreRangesManager from './ScoreRangesManager'; // Make sure this path is correct
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -12,6 +13,8 @@ export default function Dashboard() {
   const [surveys, setSurveys] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [editingSurvey, setEditingSurvey] = useState(null);
+  const [categories, setCategories] = useState([]);
 
   useEffect(() => {
     fetchSurveys();
@@ -138,7 +141,7 @@ export default function Dashboard() {
               
               <p style={{ marginBottom: '1rem', color: '#666' }}>{survey.description}</p>
               
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <button
                   onClick={() => editSurvey(survey.id)}
                   style={{
@@ -208,9 +211,56 @@ export default function Dashboard() {
                 >
                   Analytics
                 </button>
+                
+                {/* Add this new button for managing score ranges */}
+                <button
+                  onClick={() => {
+                    // Fetch categories for this survey
+                    const fetchCategories = async () => {
+                      try {
+                        const { data, error } = await supabase
+                          .from('categories')
+                          .select('*')
+                          .eq('survey_id', survey.id)
+                          .order('order');
+                        
+                        if (error) throw error;
+                        setCategories(data || []);
+                        setEditingSurvey(survey);
+                      } catch (err) {
+                        setError(err.message);
+                      }
+                    };
+                    
+                    fetchCategories();
+                  }}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    backgroundColor: '#20c997',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Score Ranges
+                </button>
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Survey editing section */}
+      {editingSurvey && (
+        <div>
+          {/* Existing survey editing form */}
+          
+          {/* Add the ScoreRangesManager component */}
+          <ScoreRangesManager 
+            surveyId={editingSurvey.id} 
+            categories={categories} 
+          />
         </div>
       )}
     </div>

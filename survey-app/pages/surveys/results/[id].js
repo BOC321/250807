@@ -14,11 +14,13 @@ const supabase = createClient(
 export default function SurveyResultsPage() {
   const router = useRouter();
   const { id } = router.query;
+  const [respondentId, setRespondentId] = useState(null);
   
   const [survey, setSurvey] = useState(null);
   const [categories, setCategories] = useState([]);
   const [responses, setResponses] = useState([]);
   const [answers, setAnswers] = useState([]);
+  const [scoreRanges, setScoreRanges] = useState({ categories: {}, total: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [email, setEmail] = useState('');
@@ -28,9 +30,82 @@ export default function SurveyResultsPage() {
 
   useEffect(() => {
     if (id) {
+      // Check if respondentId is in the URL query
+      const urlRespondentId = router.query.respondentId;
+      if (urlRespondentId) {
+        setRespondentId(urlRespondentId);
+      } else {
+        // If not, try to get the most recent response for this survey
+        fetchMostRecentResponse();
+      }
+    }
+  }, [id, router.query]);
+
+  useEffect(() => {
+    if (id && respondentId) {
       fetchSurveyData();
     }
-  }, [id]);
+  }, [id, respondentId]);
+
+  const fetchMostRecentResponse = async () => {
+    try {
+      // Fetch survey details
+      const { data: surveyData, error: surveyError } = await supabase
+        .from('surveys')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (surveyError) throw surveyError;
+      setSurvey(surveyData);
+
+      // Fetch categories with questions
+      const { data: categoriesData, error: categoriesError } = await supabase
+        .from('categories')
+        .select('*, questions(*)')
+        .eq('survey_id', id)
+        .order('order');
+
+      if (categoriesError) throw categoriesError;
+      setCategories(categoriesData || []);
+
+      // Fetch the most recent response for this survey
+      const { data: responsesData, error: responsesError } = await supabase
+        .from('responses')
+        .select('*')
+        .eq('survey_id', id)
+        .order('completed_at', { ascending: false })
+        .limit(1);
+
+      if (responsesError) throw responsesError;
+      
+      if (responsesData && responsesData.length > 0) {
+        const mostRecentResponse = responsesData[0];
+        setResponses([mostRecentResponse]);
+        setRespondentId(mostRecentResponse.id);
+        
+        // Fetch answers for this respondent
+        const { data: answersData, error: answersError } = await supabase
+          .from('answers')
+          .select('*')
+          .eq('response_id', mostRecentResponse.id);
+
+        if (answersError) throw answersError;
+        setAnswers(answersData || []);
+        
+        // Update the URL with the respondent ID
+        router.replace(`/surveys/results/${id}?respondentId=${mostRecentResponse.id}`, undefined, { shallow: true });
+      } else {
+        setResponses([]);
+        setAnswers([]);
+        setLoading(false);
+      }
+    } catch (err) {
+      console.error('Error in fetchMostRecentResponse:', err);
+      setError(err.message);
+      setLoading(false);
+    }
+  };
 
   const fetchSurveyData = async () => {
     try {
@@ -54,31 +129,77 @@ export default function SurveyResultsPage() {
       if (categoriesError) throw categoriesError;
       setCategories(categoriesData || []);
 
-      // Fetch responses
+      // Fetch responses for this respondent only
       const { data: responsesData, error: responsesError } = await supabase
         .from('responses')
         .select('*')
-        .eq('survey_id', id);
+        .eq('survey_id', id)
+        .eq('id', respondentId); // Filter by the current respondent
 
       if (responsesError) throw responsesError;
       setResponses(responsesData || []);
 
-      // Fetch answers
+      // Fetch answers for this respondent only
       if (responsesData && responsesData.length > 0) {
-        const responseIds = responsesData.map(r => r.id);
         const { data: answersData, error: answersError } = await supabase
           .from('answers')
           .select('*')
-          .in('response_id', responseIds);
+          .eq('response_id', respondentId); // Only get answers for this respondent
 
         if (answersError) throw answersError;
         setAnswers(answersData || []);
       }
+
+      // Fetch score ranges
+      const scoreRanges = await fetchScoreRanges(id);
+      setScoreRanges(scoreRanges);
     } catch (err) {
       console.error('Error in fetchSurveyData:', err);
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchScoreRanges = async (surveyId) => {
+    try {
+      // Fetch category score ranges
+      const { data: categoryRanges, error: categoryError } = await supabase
+        .from('score_ranges')
+        .select('*')
+        .eq('survey_id', surveyId)
+        .not('category_id', 'is', null);
+      
+      if (categoryError) throw categoryError;
+      
+      // Fetch total score ranges
+      const { data: totalRanges, error: totalError } = await supabase
+        .from('score_ranges')
+        .select('*')
+        .eq('survey_id', surveyId)
+        .is('category_id', null);
+      
+      if (totalError) throw totalError;
+      
+      // Organize ranges by category ID
+      const rangesByCategory = {};
+      categoryRanges.forEach(range => {
+        if (!rangesByCategory[range.category_id]) {
+          rangesByCategory[range.category_id] = [];
+        }
+        rangesByCategory[range.category_id].push(range);
+      });
+      
+      return {
+        categories: rangesByCategory,
+        total: totalRanges || []
+      };
+    } catch (err) {
+      console.error('Error fetching score ranges:', err);
+      return {
+        categories: {},
+        total: []
+      };
     }
   };
 
@@ -103,37 +224,23 @@ export default function SurveyResultsPage() {
   };
 
   const getTopResponses = () => {
-    // Get the most common responses for each question type
-    const topResponses = {};
-    
+    // For the top responses, instead of showing the most frequent responses, show this respondent's responses
+    const userResponses = {};
     categories.forEach(category => {
       category.questions.forEach(question => {
-        const questionAnswers = answers.filter(a => a.question_id === question.id);
+        const questionAnswer = answers.find(a => a.question_id === question.id);
         
-        if (questionAnswers.length > 0) {
-          // Count frequency of each response
-          const responseCounts = {};
-          questionAnswers.forEach(answer => {
-            const value = answer.value || 'No response';
-            responseCounts[value] = (responseCounts[value] || 0) + 1;
-          });
-          
-          // Sort by frequency and get top 3
-          const sortedResponses = Object.entries(responseCounts)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 3)
-            .map(([value, count]) => ({ value, count }));
-          
-          topResponses[question.id] = {
+        if (questionAnswer) {
+          userResponses[question.id] = {
             question: question.prompt,
             type: question.type,
-            responses: sortedResponses
+            response: questionAnswer.value || 'No response'
           };
         }
       });
     });
     
-    return topResponses;
+    return userResponses;
   };
 
   const handleEmailSubmit = async (e) => {
@@ -194,6 +301,11 @@ export default function SurveyResultsPage() {
     }
   };
 
+  const getScoreRange = (score, ranges) => {
+    const percentage = Math.round(score * 100);
+    return ranges.find(range => percentage >= range.min_score && percentage <= range.max_score);
+  };
+
   const categoryScores = getCategoryScores();
   const topResponses = getTopResponses();
 
@@ -235,22 +347,62 @@ export default function SurveyResultsPage() {
         <h2>Category Scores</h2>
         <div style={{ backgroundColor: '#fff', padding: '1rem', borderRadius: '4px', border: '1px solid #ddd' }}>
           <Bar data={categoryScoresChartData} options={{ responsive: true }} />
+          
+          {/* Display score range descriptions for each category */}
+          {Object.entries(categoryScores).map(([category, score]) => {
+            const categoryId = categories.find(c => c.title === category)?.id;
+            const ranges = scoreRanges.categories[categoryId] || [];
+            const range = getScoreRange(score, ranges);
+            
+            return range ? (
+              <div 
+                key={category}
+                style={{ 
+                  marginTop: '1rem', 
+                  padding: '0.75rem', 
+                  borderRadius: '4px', 
+                  backgroundColor: `${range.color}20`, // Add transparency
+                  borderLeft: `4px solid ${range.color}`
+                }}
+              >
+                <strong>{category}:</strong> {range.description}
+              </div>
+            ) : null;
+          })}
+          
+          {/* Display total score range */}
+          {Object.keys(categoryScores).length > 0 && (
+            <div style={{ marginTop: '1.5rem' }}>
+              <h3>Total Score</h3>
+              {(() => {
+                const totalScore = Object.values(categoryScores).reduce((sum, score) => sum + score, 0) / Object.keys(categoryScores).length;
+                const totalRange = getScoreRange(totalScore, scoreRanges.total);
+                
+                return totalRange ? (
+                  <div 
+                    style={{ 
+                      padding: '0.75rem', 
+                      borderRadius: '4px', 
+                      backgroundColor: `${totalRange.color}20`, // Add transparency
+                      borderLeft: `4px solid ${totalRange.color}`
+                    }}
+                  >
+                    <strong>Total Score:</strong> {totalRange.description}
+                  </div>
+                ) : null;
+              })()}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Top Responses */}
       <div style={{ marginBottom: '2rem' }}>
-        <h2>Top Responses</h2>
-        {Object.entries(topResponses).slice(0, 5).map(([questionId, data]) => (
+        <h2>Your Responses</h2>
+        {Object.entries(topResponses).map(([questionId, data]) => (
           <div key={questionId} style={{ marginBottom: '1.5rem', backgroundColor: '#fff', padding: '1rem', borderRadius: '4px', border: '1px solid #ddd' }}>
             <h4>{data.question}</h4>
-            <ul>
-              {data.responses.map((response, index) => (
-                <li key={index}>
-                  {response.value}: {response.count} responses
-                </li>
-              ))}
-            </ul>
+            <div>- {data.response}</div>
           </div>
         ))}
       </div>
@@ -315,4 +467,4 @@ export default function SurveyResultsPage() {
       </div>
     </div>
   );
-}
+}   

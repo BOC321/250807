@@ -97,3 +97,56 @@ CREATE TABLE survey_snapshots (
   snapshot JSONB NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Create score_ranges table
+CREATE TABLE IF NOT EXISTS public.score_ranges (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    survey_id uuid NOT NULL REFERENCES public.surveys(id) ON DELETE CASCADE,
+    category_id uuid REFERENCES public.categories(id) ON DELETE CASCADE,
+    min_score integer NOT NULL,
+    max_score integer NOT NULL,
+    color varchar(7) NOT NULL, -- Hex color code (e.g., #FF0000)
+    description text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT score_ranges_min_max_check CHECK (min_score >= 0 AND max_score <= 100 AND min_score < max_score),
+    CONSTRAINT score_ranges_survey_category_unique UNIQUE (survey_id, category_id)
+);
+
+-- Create index for faster lookups
+CREATE INDEX IF NOT EXISTS idx_score_ranges_survey_id ON public.score_ranges(survey_id);
+CREATE INDEX IF NOT EXISTS idx_score_ranges_category_id ON public.score_ranges(category_id);
+
+-- Create function to update updated_at timestamp
+CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Create trigger to automatically update updated_at
+CREATE TRIGGER update_score_ranges_updated_at 
+    BEFORE UPDATE ON public.score_ranges 
+    FOR EACH ROW 
+    EXECUTE FUNCTION public.update_updated_at_column();
+
+-- Add RLS policies
+ALTER TABLE public.score_ranges ENABLE ROW LEVEL SECURITY;
+
+-- Policy to allow authenticated users to read score ranges
+CREATE POLICY "Allow authenticated users to read score ranges" ON public.score_ranges
+    FOR SELECT USING (auth.role() = 'authenticated');
+
+-- Policy to allow authenticated users to insert score ranges
+CREATE POLICY "Allow authenticated users to insert score_ranges" ON public.score_ranges
+    FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+-- Policy to allow authenticated users to update score ranges
+CREATE POLICY "Allow authenticated users to update score ranges" ON public.score_ranges
+    FOR UPDATE USING (auth.role() = 'authenticated');
+
+-- Policy to allow authenticated users to delete score ranges
+CREATE POLICY "Allow authenticated users to delete score ranges" ON public.score_ranges
+    FOR DELETE USING (auth.role() = 'authenticated');
