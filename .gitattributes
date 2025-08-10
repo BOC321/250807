@@ -1,9 +1,10 @@
 * text=auto eol=lf
 
-# (optional explicit patterns)
+# Explicit patterns for common source files
 *.js   text eol=lf
 *.ts   text eol=lf
 *.tsx  text eol=lf
 *.json text eol=lf
 *.css  text eol=lf
 *.md   text eol=lf
+*.html text eol=lf
