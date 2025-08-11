@@ -34,21 +34,31 @@ export default function AdminLogin() {
     fetchSupabaseConfig();
   }, []);
 
-  // Create Supabase client with hardcoded configuration for testing
+  // Create Supabase client with proper environment variable handling
   const getSupabaseClient = () => {
-    // Temporary hardcoded configuration for testing
-    const supabaseUrl = 'https://maouzhwsyjsqexhzdzth.supabase.co';
-    const supabaseAnonKey = 'sb_publishable_zy7UH-zzqd9ZW3D1nwBfzw_mF2XTgL8';
+    // Use the fetched configuration from the API
+    if (supabaseConfig && supabaseConfig.supabaseUrl && supabaseConfig.supabaseAnonKey) {
+      try {
+        return createClient(supabaseConfig.supabaseUrl, supabaseConfig.supabaseAnonKey);
+      } catch (err) {
+        console.error('Error creating Supabase client with API config:', err);
+        return null;
+      }
+    }
+    
+    // Fallback to environment variables if API config is not available
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     
     if (!supabaseUrl || !supabaseAnonKey) {
-      console.error('Supabase configuration not available');
+      console.error('Supabase configuration not available from API or environment variables');
       return null;
     }
     
     try {
       return createClient(supabaseUrl, supabaseAnonKey);
     } catch (err) {
-      console.error('Error creating Supabase client:', err);
+      console.error('Error creating Supabase client with environment variables:', err);
       return null;
     }
   };
