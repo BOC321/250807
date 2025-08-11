@@ -8,38 +8,41 @@ export default function AdminLogin() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [envStatus, setEnvStatus] = useState('Checking...');
+  const [supabaseConfig, setSupabaseConfig] = useState(null);
   const router = useRouter();
 
-  // Check environment variables on component mount
+  // Fetch Supabase configuration from API endpoint
   useEffect(() => {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const fetchSupabaseConfig = async () => {
+      try {
+        const response = await fetch('/api/supabase-config');
+        const data = await response.json();
+        
+        if (response.ok && data.supabaseUrl && data.supabaseAnonKey) {
+          setSupabaseConfig(data);
+          setEnvStatus('✅ Supabase configuration available');
+        } else {
+          setEnvStatus('❌ Supabase configuration not available');
+          console.error('Supabase config error:', data);
+        }
+      } catch (err) {
+        setEnvStatus('❌ Failed to fetch Supabase configuration');
+        console.error('Error fetching Supabase config:', err);
+      }
+    };
     
-    if (supabaseUrl && supabaseAnonKey) {
-      setEnvStatus('✅ Environment variables available');
-    } else {
-      setEnvStatus('❌ Environment variables missing');
-    }
+    fetchSupabaseConfig();
   }, []);
 
-  // Create Supabase client dynamically at runtime
+  // Create Supabase client dynamically using fetched configuration
   const getSupabaseClient = () => {
-    // For client-side access, we need to use the NEXT_PUBLIC_ variables
-    // These are embedded in the JavaScript bundle at build time
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    
-    // Check if variables are available
-    if (!supabaseUrl || !supabaseAnonKey) {
-      console.error('Environment variables not available:', {
-        supabaseUrl: !!supabaseUrl,
-        supabaseAnonKey: !!supabaseAnonKey
-      });
+    if (!supabaseConfig || !supabaseConfig.supabaseUrl || !supabaseConfig.supabaseAnonKey) {
+      console.error('Supabase configuration not available');
       return null;
     }
     
     try {
-      return createClient(supabaseUrl, supabaseAnonKey);
+      return createClient(supabaseConfig.supabaseUrl, supabaseConfig.supabaseAnonKey);
     } catch (err) {
       console.error('Error creating Supabase client:', err);
       return null;
