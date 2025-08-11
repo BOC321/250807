@@ -34,15 +34,19 @@ export default function AdminLogin() {
     fetchSupabaseConfig();
   }, []);
 
-  // Create Supabase client dynamically using fetched configuration
+  // Create Supabase client with hardcoded configuration for testing
   const getSupabaseClient = () => {
-    if (!supabaseConfig || !supabaseConfig.supabaseUrl || !supabaseConfig.supabaseAnonKey) {
+    // Temporary hardcoded configuration for testing
+    const supabaseUrl = 'https://maouzhwsyjsqexhzdzth.supabase.co';
+    const supabaseAnonKey = 'sb_publishable_zy7UH-zzqd9ZW3D1nwBfzw_mF2XTgL8';
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
       console.error('Supabase configuration not available');
       return null;
     }
     
     try {
-      return createClient(supabaseConfig.supabaseUrl, supabaseConfig.supabaseAnonKey);
+      return createClient(supabaseUrl, supabaseAnonKey);
     } catch (err) {
       console.error('Error creating Supabase client:', err);
       return null;
