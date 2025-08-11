@@ -205,6 +205,7 @@ export default function SurveyResultsPage() {
 
   const getCategoryScores = () => {
     const categoryScores = {};
+    const categoryMaxScores = {};
     
     categories.forEach(category => {
       const categoryQuestions = category.questions.map(q => q.id);
@@ -212,15 +213,33 @@ export default function SurveyResultsPage() {
         categoryQuestions.includes(answer.question_id) && answer.score !== null
       );
       
+      // Calculate actual score for the category
+      let categoryScore = 0;
+      let categoryMaxScore = 0;
+      
       if (categoryAnswers.length > 0) {
-        const totalScore = categoryAnswers.reduce((sum, answer) => sum + (answer.score || 0), 0);
-        categoryScores[category.title] = totalScore / categoryAnswers.length;
-      } else {
-        categoryScores[category.title] = 0;
+        // Sum the actual scores
+        categoryScore = categoryAnswers.reduce((sum, answer) => sum + (answer.score || 0), 0);
+        
+        // Calculate maximum possible score for this category
+        category.questions.forEach(question => {
+          categoryMaxScore += question.max_score || 1; // Use max_score from question, default to 1 if not set
+        });
       }
+      
+      // Calculate percentage using the correct formula
+      const categoryPercentage = categoryMaxScore > 0 ? (categoryScore / categoryMaxScore) * 100 : 0;
+      
+      categoryScores[category.title] = {
+        score: categoryScore,
+        maxScore: categoryMaxScore,
+        percentage: categoryPercentage
+      };
+      
+      categoryMaxScores[category.title] = categoryMaxScore;
     });
     
-    return categoryScores;
+    return { categoryScores, categoryMaxScores };
   };
 
   const getTopResponses = () => {
@@ -275,7 +294,7 @@ export default function SurveyResultsPage() {
       if (updateError) throw updateError;
       
       // Call API to generate and send PDF report
-      const response = await fetch('/api/generate-report', {
+      const response = await fetch('/api/reports/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -301,20 +320,30 @@ export default function SurveyResultsPage() {
     }
   };
 
-  const getScoreRange = (score, ranges) => {
-    const percentage = Math.round(score * 100);
+  const getScoreRange = (percentage, ranges) => {
     return ranges.find(range => percentage >= range.min_score && percentage <= range.max_score);
   };
 
-  const categoryScores = getCategoryScores();
+  const { categoryScores, categoryMaxScores } = getCategoryScores();
   const topResponses = getTopResponses();
+
+  // Calculate total score using the correct formula
+  let totalScore = 0;
+  let totalMaxScore = 0;
+  
+  Object.values(categoryScores).forEach(categoryData => {
+    totalScore += categoryData.score;
+    totalMaxScore += categoryData.maxScore;
+  });
+  
+  const totalPercentage = totalMaxScore > 0 ? (totalScore / totalMaxScore) * 100 : 0;
 
   const categoryScoresChartData = {
     labels: Object.keys(categoryScores),
     datasets: [
       {
-        label: 'Average Score',
-        data: Object.values(categoryScores),
+        label: 'Score Percentage',
+        data: Object.values(categoryScores).map(categoryData => categoryData.percentage),
         backgroundColor: 'rgba(153, 102, 255, 0.5)',
         borderColor: 'rgb(153, 102, 255)',
         borderWidth: 1,
@@ -334,14 +363,6 @@ export default function SurveyResultsPage() {
         <p style={{ marginBottom: '2rem', color: '#666' }}>{survey.description}</p>
       )}
       
-      {/* Overview Metrics */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-        <div style={{ backgroundColor: '#f8f9fa', padding: '1rem', borderRadius: '4px', textAlign: 'center' }}>
-          <h3>Total Responses</h3>
-          <p style={{ fontSize: '2rem', margin: '0' }}>{responses.length}</p>
-        </div>
-      </div>
-
       {/* Category Scores */}
       <div style={{ marginBottom: '2rem' }}>
         <h2>Category Scores</h2>
@@ -349,45 +370,62 @@ export default function SurveyResultsPage() {
           <Bar data={categoryScoresChartData} options={{ responsive: true }} />
           
           {/* Display score range descriptions for each category */}
-          {Object.entries(categoryScores).map(([category, score]) => {
+          {Object.entries(categoryScores).map(([category, categoryData]) => {
             const categoryId = categories.find(c => c.title === category)?.id;
             const ranges = scoreRanges.categories[categoryId] || [];
-            const range = getScoreRange(score, ranges);
+            const range = getScoreRange(categoryData.percentage, ranges);
             
-            return range ? (
-              <div 
-                key={category}
-                style={{ 
-                  marginTop: '1rem', 
-                  padding: '0.75rem', 
-                  borderRadius: '4px', 
-                  backgroundColor: `${range.color}20`, // Add transparency
-                  borderLeft: `4px solid ${range.color}`
-                }}
-              >
-                <strong>{category}:</strong> {range.description}
+            return (
+              <div key={category} style={{ marginTop: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <strong>{category}:</strong>
+                  <span>{Math.round(categoryData.percentage)}%</span>
+                </div>
+                <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                  ({categoryData.score} out of {categoryData.maxScore} points)
+                </div>
+                {range && (
+                  <div 
+                    style={{ 
+                      marginTop: '0.5rem', 
+                      padding: '0.75rem', 
+                      borderRadius: '4px', 
+                      backgroundColor: `${range.color}20`, // Add transparency
+                      borderLeft: `4px solid ${range.color}`
+                    }}
+                  >
+                    {range.description}
+                  </div>
+                )}
               </div>
-            ) : null;
+            );
           })}
           
           {/* Display total score range */}
           {Object.keys(categoryScores).length > 0 && (
-            <div style={{ marginTop: '1.5rem' }}>
+            <div style={{ marginTop: '1.5rem', borderTop: '1px solid #ddd', paddingTop: '1rem' }}>
               <h3>Total Score</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <strong>Overall Score:</strong>
+                <span>{Math.round(totalPercentage)}%</span>
+              </div>
+              <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                ({totalScore} out of {totalMaxScore} points)
+              </div>
               {(() => {
-                const totalScore = Object.values(categoryScores).reduce((sum, score) => sum + score, 0) / Object.keys(categoryScores).length;
-                const totalRange = getScoreRange(totalScore, scoreRanges.total);
+                const totalRange = getScoreRange(totalPercentage, scoreRanges.total);
                 
                 return totalRange ? (
                   <div 
                     style={{ 
+                      marginTop: '0.5rem', 
                       padding: '0.75rem', 
                       borderRadius: '4px', 
                       backgroundColor: `${totalRange.color}20`, // Add transparency
                       borderLeft: `4px solid ${totalRange.color}`
                     }}
                   >
-                    <strong>Total Score:</strong> {totalRange.description}
+                    {totalRange.description}
                   </div>
                 ) : null;
               })()}
@@ -467,4 +505,4 @@ export default function SurveyResultsPage() {
       </div>
     </div>
   );
-}   
+}

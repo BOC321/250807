@@ -1,7 +1,8 @@
 import React from 'react';
-import { getScoreRange } from '../utils/scoreUtils';
+import { getScoreRange } from '../../utils/scoreUtils';
+import { SurveyResultsProps } from '../../types/ui';
 
-const SurveyResults = ({ survey, categoryScores, userResponses, scoreRanges }) => {
+const SurveyResults = ({ survey, categoryScores, userResponses, scoreRanges }: SurveyResultsProps) => {
   return (
     <div className="survey-results">
       <h1>Your Survey Report: {survey.title}</h1>

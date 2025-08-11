@@ -25,7 +25,8 @@ async function testConnection() {
     // Try a simple query to test the connection
     const { data, error } = await supabase
       .from('surveys')
-      .select('count()', { count: 'exact' });
+      .select('id')
+      .limit(1);
     
     if (error) {
       console.log('Connection test failed with error:', error);
@@ -33,7 +34,7 @@ async function testConnection() {
     }
     
     console.log('Connection test successful!');
-    console.log('Survey table count query result:', data);
+    console.log('Survey table query result:', data);
     return true;
   } catch (err) {
     console.log('Connection test failed with exception:', err.message);

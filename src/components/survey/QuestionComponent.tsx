@@ -1,15 +1,15 @@
 // Question component for rendering different question types
-
 import { useState, useEffect } from 'react';
+import { QuestionComponentProps, Question } from '../../types';
 
-export const QuestionComponent = ({ question, onAnswer, answer }) => {
+export const QuestionComponent = ({ question, onAnswer, answer }: QuestionComponentProps) => {
   const [value, setValue] = useState(answer?.value || (question.type === 'multi' ? [] : ''));
   
   useEffect(() => {
     setValue(answer?.value || (question.type === 'multi' ? [] : ''));
   }, [answer, question.type]);
   
-  const handleChange = (newValue) => {
+  const handleChange = (newValue: any) => {
     setValue(newValue);
     
     // For single choice and scale, auto-submit
@@ -18,7 +18,7 @@ export const QuestionComponent = ({ question, onAnswer, answer }) => {
     }
   };
   
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onAnswer(question.id, value);
   };
@@ -30,7 +30,7 @@ export const QuestionComponent = ({ question, onAnswer, answer }) => {
       case 'single':
         return (
           <div className="choices">
-            {question.choices.map((choice) => (
+            {question.choices.map((choice: any) => (
               <label key={choice.id} className="choice-option">
                 <input
                   type="radio"
@@ -51,7 +51,7 @@ export const QuestionComponent = ({ question, onAnswer, answer }) => {
       case 'multi':
         return (
           <div className="choices">
-            {question.choices.map((choice) => (
+            {question.choices.map((choice: any) => (
               <label key={choice.id} className="choice-option">
                 <input
                   type="checkbox"
@@ -61,7 +61,7 @@ export const QuestionComponent = ({ question, onAnswer, answer }) => {
                   onChange={(e) => {
                     const newValues = e.target.checked
                       ? [...value, choice.id]
-                      : value.filter(v => v !== choice.id);
+                      : value.filter((v: any) => v !== choice.id);
                     handleChange(newValues);
                   }}
                 />

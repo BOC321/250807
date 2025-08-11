@@ -1,129 +1,50 @@
-// Types for our survey application
+// Main types export file
+// Re-exports all types from specialized type files
 
-export type SurveyStatus = 'draft' | 'published' | 'archived';
+// Survey types
+export * from './survey';
 
-export interface Survey {
-  id: string;
-  version: number;
-  title: string;
-  description?: string;
-  rangesOverallVersionId?: string;
-  status: SurveyStatus;
-  createdAt: string;
-  updatedAt: string;
+// API types
+export * from './api';
+
+// UI types
+export * from './ui';
+
+// Common utility types that might be used across the application
+export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
+
+export type RequiredFields<T, K extends keyof T> = T & Required<Pick<T, K>>;
+
+export type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+};
+
+// Error types
+export interface ApiError {
+  code: string;
+  message: string;
+  details?: any;
 }
 
-export interface Category {
-  id: string;
-  surveyId: string;
-  title: string;
-  description?: string;
-  weight: number;
-  rangesVersionId?: string;
-  order: number;
-  createdAt: string;
-  updatedAt: string;
+export interface ValidationError {
+  field: string;
+  message: string;
 }
 
-export interface Choice {
-  id: string;
-  label: string;
-  value: number;
+// Common response types
+export interface ApiResponse<T = any> {
+  success: boolean;
+  data?: T;
+  error?: ApiError;
+  message?: string;
 }
 
-export type QuestionType = 'single' | 'multi' | 'scale' | 'text';
-
-export interface Question {
-  id: string;
-  categoryId: string;
-  type: QuestionType;
-  prompt: string;
-  choices: Choice[];
-  maxScore: number;
-  weight: number;
-  required: boolean;
-  imageUrl?: string;
-  helpText?: string;
-  scorable: boolean;
-  order: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Band {
-  min: number;
-  max: max: number;
-  label: string;
-  htmlContent: string;
-}
-
-export type RangeSetScope = 'category' | 'overall';
-
-export interface RangeSetVersion {
-  id: string;
-  scope: RangeSetScope;
-  bands: Band[];
-  createdAt: string;
-}
-
-export interface Respondent {
-  id: string;
-  surveyId: string;
-  surveyVersion: number;
-  email?: string;
-  meta: Record<string, any>;
-  consent: boolean;
-  consentTimestamp?: string;
-  createdAt: string;
-}
-
-export interface Answer {
-  id: string;
-  respondentId: string;
-  questionId: string;
-  value: any; // Could be string, number, or array depending on question type
-  presentedOrder: number;
-  createdAt: string;
-}
-
-export interface CategoryResult {
-  categoryId: string;
-  score: number;
-  max: number;
-  percent: number;
-  bandId: string;
-}
-
-export interface OverallResult {
-  score: number;
-  max: number;
-  percent: number;
-  bandId: string;
-}
-
-export interface Result {
-  id: string;
-  respondentId: string;
-  perCategory: CategoryResult[];
-  overall: OverallResult;
-  completedCount: number;
-  scorableCount: number;
-  createdAt: string;
-}
-
-export interface ReportAsset {
-  id: string;
-  surveyId: string;
-  categoryId?: string;
-  bandId?: string;
-  assetType: string;
-  assetUrl: string;
-  createdAt: string;
-}
-
-export interface SurveySnapshot {
-  id: string;
-  surveyId: string;
-  snapshot: any;
-  createdAt: string;
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }

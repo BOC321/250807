@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
-import SurveyResults from '../../../components/SurveyResults';
+import SurveyResults from '../../../components/survey/SurveyResults';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,

@@ -1,6 +1,7 @@
 // Consent form component
+import { ConsentFormProps } from '../../types/ui';
 
-export const ConsentForm = ({ onConsent }) => {
+export const ConsentForm = ({ onConsent }: ConsentFormProps) => {
   return (
     <div className="consent-form">
       <h2>Survey Consent</h2>
@@ -19,10 +20,21 @@ export const ConsentForm = ({ onConsent }) => {
           By clicking "I Agree" below, you indicate that you are at least 18 years old 
           and consent to participate in this survey.
         </p>
+        <div className="consent-buttons">
+          <button 
+            onClick={() => onConsent(true)}
+            className="consent-agree"
+          >
+            I Agree
+          </button>
+          <button 
+            onClick={() => onConsent(false)}
+            className="consent-disagree"
+          >
+            I Disagree
+          </button>
+        </div>
       </div>
-      <button onClick={onConsent} className="consent-button">
-        I Agree
-      </button>
     </div>
   );
 };

@@ -1,8 +1,9 @@
 // Progress bar component
+import { ProgressBarProps } from '../../types/ui';
 
-export const ProgressBar = ({ value }) => {
+export const ProgressBar = ({ value, className = '' }: ProgressBarProps) => {
   return (
-    <div className="progress-container">
+    <div className={`progress-container ${className}`}>
       <div className="progress-bar">
         <div 
           className="progress-fill" 

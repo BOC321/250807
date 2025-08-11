@@ -4,24 +4,25 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { SurveyService, RespondentService, AnswerService } from '../services/supabaseService';
 import { calculateQuestionScore, calculateCategoryScore, calculateOverallScore, calculateCompletionRate, determineBand } from '../utils/scoring';
-import { QuestionComponent } from '../components/QuestionComponent';
-import { ProgressBar } from '../components/ProgressBar';
-import { ConsentForm } from '../components/ConsentForm';
+import { QuestionComponent } from '../components/survey/QuestionComponent';
+import { ProgressBar } from '../components/ui/ProgressBar';
+import { ConsentForm } from '../components/survey/ConsentForm';
+import { Survey, Category, Question, Respondent, Answer } from '../types';
 
 export default function SurveyPage() {
   const router = useRouter();
-  const { surveyId } = router.query;
+  const { surveyId } = router.query as { surveyId?: string };
   
-  const [survey, setSurvey] = useState(null);
-  const [categories, setCategories] = useState([]);
-  const [questions, setQuestions] = useState([]);
+  const [survey, setSurvey] = useState<Survey | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [currentCategoryIndex, setCurrentCategoryIndex] = useState(0);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState({});
-  const [respondent, setRespondent] = useState(null);
+  const [answers, setAnswers] = useState<Record<string, Answer>>({});
+  const [respondent, setRespondent] = useState<Respondent | null>(null);
   const [consentGiven, setConsentGiven] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   
   // Load survey data
   useEffect(() => {
@@ -78,7 +79,7 @@ export default function SurveyPage() {
   };
   
   // Handle answer submission
-  const handleAnswer = async (questionId, value) => {
+  const handleAnswer = async (questionId: string, value: any) => {
     if (!respondent) return;
     
     try {
@@ -145,7 +146,7 @@ export default function SurveyPage() {
       });
       
       // Calculate overall result
-      const categoryWeights = {};
+      const categoryWeights: Record<string, number> = {};
       categories.forEach(cat => {
         categoryWeights[cat.id] = cat.weight;
       });
