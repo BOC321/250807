@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { createClient } from '@supabase/supabase-js';
 
@@ -7,7 +7,20 @@ export default function AdminLogin() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [envStatus, setEnvStatus] = useState('Checking...');
   const router = useRouter();
+
+  // Check environment variables on component mount
+  useEffect(() => {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    
+    if (supabaseUrl && supabaseAnonKey) {
+      setEnvStatus('✅ Environment variables available');
+    } else {
+      setEnvStatus('❌ Environment variables missing');
+    }
+  }, []);
 
   // Create Supabase client dynamically at runtime
   const getSupabaseClient = () => {
@@ -67,6 +80,7 @@ export default function AdminLogin() {
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             Admin Login
           </h2>
+          <p className="text-center text-sm text-gray-600">{envStatus}</p>
         </div>
         <form onSubmit={handleLogin} className="mt-8 space-y-6" style={{ maxWidth: '400px', margin: '0 auto' }}>
           <input
