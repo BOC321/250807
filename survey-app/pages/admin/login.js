@@ -11,25 +11,26 @@ export default function AdminLogin() {
 
   // Create Supabase client dynamically at runtime
   const getSupabaseClient = () => {
+    // For client-side access, we need to use the NEXT_PUBLIC_ variables
+    // These are embedded in the JavaScript bundle at build time
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     
-    console.log('Environment variables check:', {
-      supabaseUrl: supabaseUrl ? 'Present' : 'Missing',
-      supabaseAnonKey: supabaseAnonKey ? 'Present' : 'Missing',
-      supabaseUrlValue: supabaseUrl ? supabaseUrl.substring(0, 20) + '...' : 'None',
-      supabaseAnonKeyValue: supabaseAnonKey ? supabaseAnonKey.substring(0, 20) + '...' : 'None'
-    });
-    
+    // Check if variables are available
     if (!supabaseUrl || !supabaseAnonKey) {
-      console.error('Missing environment variables:', {
-        supabaseUrl: supabaseUrl ? 'Present' : 'Missing',
-        supabaseAnonKey: supabaseAnonKey ? 'Present' : 'Missing'
+      console.error('Environment variables not available:', {
+        supabaseUrl: !!supabaseUrl,
+        supabaseAnonKey: !!supabaseAnonKey
       });
       return null;
     }
     
-    return createClient(supabaseUrl, supabaseAnonKey);
+    try {
+      return createClient(supabaseUrl, supabaseAnonKey);
+    } catch (err) {
+      console.error('Error creating Supabase client:', err);
+      return null;
+    }
   };
 
   const handleLogin = async (e) => {
@@ -66,12 +67,6 @@ export default function AdminLogin() {
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             Admin Login
           </h2>
-          {/* Debug info - remove after fixing */}
-          <div className="mt-4 p-4 bg-yellow-100 rounded text-sm">
-            <p><strong>Debug Info:</strong></p>
-            <p>SUPABASE_URL: {process.env.NEXT_PUBLIC_SUPABASE_URL ? '✓ Present' : '✗ Missing'}</p>
-            <p>SUPABASE_ANON_KEY: {process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? '✓ Present' : '✗ Missing'}</p>
-          </div>
         </div>
         <form onSubmit={handleLogin} className="mt-8 space-y-6" style={{ maxWidth: '400px', margin: '0 auto' }}>
           <input

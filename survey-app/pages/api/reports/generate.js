@@ -14,17 +14,8 @@ console.log('GMAIL_APP_PASSWORD:', process.env.GMAIL_APP_PASSWORD ? 'Present' : 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-console.log('Supabase client initialization:', {
-  supabaseUrl: supabaseUrl ? 'Present' : 'Missing',
-  supabaseKey: supabaseKey ? 'Present' : 'Missing',
-  supabaseUrlValue: supabaseUrl ? supabaseUrl.substring(0, 20) + '...' : 'None',
-  supabaseKeyValue: supabaseKey ? supabaseKey.substring(0, 20) + '...' : 'None'
-});
-
 if (!supabaseUrl || !supabaseKey) {
   console.error('Missing Supabase URL or key');
-  console.error('Supabase URL:', supabaseUrl ? 'Set' : 'Not set');
-  console.error('Supabase Key:', supabaseKey ? 'Set' : 'Not set');
   throw new Error('Missing Supabase URL or key');
 }
 
