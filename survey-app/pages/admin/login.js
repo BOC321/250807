@@ -14,6 +14,13 @@ export default function AdminLogin() {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     
+    console.log('Environment variables check:', {
+      supabaseUrl: supabaseUrl ? 'Present' : 'Missing',
+      supabaseAnonKey: supabaseAnonKey ? 'Present' : 'Missing',
+      supabaseUrlValue: supabaseUrl ? supabaseUrl.substring(0, 20) + '...' : 'None',
+      supabaseAnonKeyValue: supabaseAnonKey ? supabaseAnonKey.substring(0, 20) + '...' : 'None'
+    });
+    
     if (!supabaseUrl || !supabaseAnonKey) {
       console.error('Missing environment variables:', {
         supabaseUrl: supabaseUrl ? 'Present' : 'Missing',

@@ -5,12 +5,21 @@ import nodemailer from 'nodemailer';
 
 // Debug: Log all environment variables
 console.log('Environment variables debug:');
-console.log('NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
-console.log('SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Set (length: ' + process.env.SUPABASE_SERVICE_ROLE_KEY.length + ')' : 'Not set');
+console.log('NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'Present' : 'Missing');
+console.log('SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Present (length: ' + process.env.SUPABASE_SERVICE_ROLE_KEY.length + ')' : 'Missing');
+console.log('GMAIL_EMAIL:', process.env.GMAIL_EMAIL ? 'Present' : 'Missing');
+console.log('GMAIL_APP_PASSWORD:', process.env.GMAIL_APP_PASSWORD ? 'Present' : 'Missing');
 
 // Initialize Supabase client with error handling
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+console.log('Supabase client initialization:', {
+  supabaseUrl: supabaseUrl ? 'Present' : 'Missing',
+  supabaseKey: supabaseKey ? 'Present' : 'Missing',
+  supabaseUrlValue: supabaseUrl ? supabaseUrl.substring(0, 20) + '...' : 'None',
+  supabaseKeyValue: supabaseKey ? supabaseKey.substring(0, 20) + '...' : 'None'
+});
 
 if (!supabaseUrl || !supabaseKey) {
   console.error('Missing Supabase URL or key');
