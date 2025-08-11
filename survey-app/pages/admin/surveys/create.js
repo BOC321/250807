@@ -4,10 +4,12 @@ import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ? createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    )
+  : null;
 
 export default function CreateSurvey() {
   const router = useRouter();
@@ -264,6 +266,11 @@ export default function CreateSurvey() {
     setError('');
     
     if (!validateSurvey()) {
+      return;
+    }
+
+    if (!supabase) {
+      setError('Database connection not available');
       return;
     }
 

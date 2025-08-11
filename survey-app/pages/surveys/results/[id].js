@@ -6,10 +6,12 @@ import { Bar, Pie } from 'react-chartjs-2';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ? createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    )
+  : null;
 
 export default function SurveyResultsPage() {
   const router = useRouter();
@@ -48,6 +50,11 @@ export default function SurveyResultsPage() {
   }, [id, respondentId]);
 
   const fetchMostRecentResponse = async () => {
+    if (!supabase) {
+      setError('Database connection not available');
+      return;
+    }
+
     try {
       // Fetch survey details
       const { data: surveyData, error: surveyError } = await supabase
@@ -108,6 +115,12 @@ export default function SurveyResultsPage() {
   };
 
   const fetchSurveyData = async () => {
+    if (!supabase) {
+      setError('Database connection not available');
+      setLoading(false);
+      return;
+    }
+
     try {
       // Fetch survey details
       const { data: surveyData, error: surveyError } = await supabase

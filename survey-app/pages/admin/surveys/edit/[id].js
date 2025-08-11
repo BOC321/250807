@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ? createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    )
+  : null;
 
 export default function EditSurveyPage() {
   const router = useRouter();
@@ -27,6 +29,12 @@ export default function EditSurveyPage() {
   }, [id]);
 
   const fetchSurveyData = async () => {
+    if (!supabase) {
+      setError('Database connection not available');
+      setLoading(false);
+      return;
+    }
+
     try {
       // Fetch survey details
       const { data: surveyData, error: surveyError } = await supabase
@@ -143,115 +151,121 @@ export default function EditSurveyPage() {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  setLoading(true);
+    e.preventDefault();
+    setLoading(true);
+    
+    if (!supabase) {
+      setError('Database connection not available');
+      setLoading(false);
+      return;
+    }
   
-  try {
-    // Update survey
-    const { error: surveyError } = await supabase
-      .from('surveys')
-      .update({
-        title: survey.title,
-        description: survey.description,
-        status: survey.status
-      })
-      .eq('id', id);
+    try {
+      // Update survey
+      const { error: surveyError } = await supabase
+        .from('surveys')
+        .update({
+          title: survey.title,
+          description: survey.description,
+          status: survey.status
+        })
+        .eq('id', id);
 
-    if (surveyError) throw surveyError;
+      if (surveyError) throw surveyError;
 
-    // Update categories and questions
-    for (let i = 0; i < categories.length; i++) {
-      const category = categories[i];
-      
-      // Check if the category has an ID (exists in database) or not (new category)
-      let categoryId;
-      if (category.id) {
-        // Update existing category
-        const { data: updatedCategory, error: categoryError } = await supabase
-          .from('categories')
-          .update({
-            title: category.title,
-            description: category.description,
-            weight: category.weight,
-            order: i + 1
-          })
-          .eq('id', category.id)
-          .select();
-
-        if (categoryError) throw categoryError;
-        categoryId = updatedCategory[0].id;
-      } else {
-        // Insert new category
-        const { data: newCategory, error: categoryError } = await supabase
-          .from('categories')
-          .insert({
-            title: category.title,
-            description: category.description,
-            weight: category.weight,
-            order: i + 1,
-            survey_id: id
-          })
-          .select();
-
-        if (categoryError) throw categoryError;
-        categoryId = newCategory[0].id;
-      }
-
-      // Process questions for this category
-      for (let j = 0; j < category.questions.length; j++) {
-        const question = category.questions[j];
+      // Update categories and questions
+      for (let i = 0; i < categories.length; i++) {
+        const category = categories[i];
         
-        // Format arrays for PostgreSQL
-        const choicesArray = `{${question.choices.map(choice => `"${choice.replace(/"/g, '\\"')}"`).join(',')}}`;
-        const choiceScoresArray = `{${question.choiceScores.join(',')}}`;
-        
-        // Check if the question has an ID (exists in database) or not (new question)
-        if (question.id) {
-          // Update existing question
-          const { error: questionError } = await supabase
-            .from('questions')
+        // Check if the category has an ID (exists in database) or not (new category)
+        let categoryId;
+        if (category.id) {
+          // Update existing category
+          const { data: updatedCategory, error: categoryError } = await supabase
+            .from('categories')
             .update({
-              prompt: question.prompt,
-              type: question.type,
-              choices: choicesArray,
-              choice_scores: choiceScoresArray,
-              max_score: question.maxScore,
-              weight: question.weight,
-              required: question.required,
-              scorable: question.scorable,
-              order: j + 1
+              title: category.title,
+              description: category.description,
+              weight: category.weight,
+              order: i + 1
             })
-            .eq('id', question.id);
+            .eq('id', category.id)
+            .select();
 
-          if (questionError) throw questionError;
+          if (categoryError) throw categoryError;
+          categoryId = updatedCategory[0].id;
         } else {
-          // Insert new question
-          const { error: questionError } = await supabase
-            .from('questions')
+          // Insert new category
+          const { data: newCategory, error: categoryError } = await supabase
+            .from('categories')
             .insert({
-              prompt: question.prompt,
-              type: question.type,
-              choices: choicesArray,
-              choice_scores: choiceScoresArray,
-              max_score: question.maxScore,
-              weight: question.weight,
-              required: question.required,
-              scorable: question.scorable,
-              order: j + 1,
-              category_id: categoryId
-            });
+              title: category.title,
+              description: category.description,
+              weight: category.weight,
+              order: i + 1,
+              survey_id: id
+            })
+            .select();
 
-          if (questionError) throw questionError;
+          if (categoryError) throw categoryError;
+          categoryId = newCategory[0].id;
+        }
+
+        // Process questions for this category
+        for (let j = 0; j < category.questions.length; j++) {
+          const question = category.questions[j];
+          
+          // Format arrays for PostgreSQL
+          const choicesArray = `{${question.choices.map(choice => `"${choice.replace(/"/g, '\\"')}"`).join(',')}}`;
+          const choiceScoresArray = `{${question.choiceScores.join(',')}}`;
+          
+          // Check if the question has an ID (exists in database) or not (new question)
+          if (question.id) {
+            // Update existing question
+            const { error: questionError } = await supabase
+              .from('questions')
+              .update({
+                prompt: question.prompt,
+                type: question.type,
+                choices: choicesArray,
+                choice_scores: choiceScoresArray,
+                max_score: question.maxScore,
+                weight: question.weight,
+                required: question.required,
+                scorable: question.scorable,
+                order: j + 1
+              })
+              .eq('id', question.id);
+
+            if (questionError) throw questionError;
+          } else {
+            // Insert new question
+            const { error: questionError } = await supabase
+              .from('questions')
+              .insert({
+                prompt: question.prompt,
+                type: question.type,
+                choices: choicesArray,
+                choice_scores: choiceScoresArray,
+                max_score: question.maxScore,
+                weight: question.weight,
+                required: question.required,
+                scorable: question.scorable,
+                order: j + 1,
+                category_id: categoryId
+              });
+
+            if (questionError) throw questionError;
+          }
         }
       }
-    }
 
-    router.push('/admin/dashboard');
-  } catch (err) {
-    console.error('Error in handleSubmit:', err);
-    setError(err.message);
-    setLoading(false);
-  }
+      router.push('/admin/dashboard');
+    } catch (err) {
+      console.error('Error in handleSubmit:', err);
+      setError(err.message);
+      setLoading(false);
+    }
 };
 
   // Helper functions for managing categories and questions

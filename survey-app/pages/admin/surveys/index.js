@@ -3,10 +3,12 @@ import { useRouter } from 'next/router';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid'; // Add this import
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ? createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    )
+  : null;
 
 export default function TakeSurveyPage() {
   const router = useRouter();
@@ -24,6 +26,12 @@ export default function TakeSurveyPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
+    
+    if (!supabase) {
+      setError('Database connection not available');
+      setSubmitting(false);
+      return;
+    }
     
     try {
       // Validate required questions

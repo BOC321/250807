@@ -3,10 +3,13 @@ import { useRouter } from 'next/router';
 import { createClient } from '@supabase/supabase-js';
 import ScoreRangesManager from './ScoreRangesManager'; // Make sure this path is correct
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+// Only create Supabase client if environment variables are available
+const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ? createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    )
+  : null;
 
 export default function Dashboard() {
   const router = useRouter();
@@ -22,6 +25,12 @@ export default function Dashboard() {
 
   const fetchSurveys = async () => {
     try {
+      if (!supabase) {
+        setError('Supabase client not initialized. Please check environment variables.');
+        setLoading(false);
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('surveys')
         .select('*')
@@ -41,6 +50,11 @@ export default function Dashboard() {
     if (!confirm('Are you sure you want to delete this survey?')) return;
     
     try {
+      if (!supabase) {
+        setError('Supabase client not initialized. Please check environment variables.');
+        return;
+      }
+      
       // First, delete all questions in all categories of this survey
       const { data: categories } = await supabase
         .from('categories')
@@ -218,6 +232,11 @@ export default function Dashboard() {
                     // Fetch categories for this survey
                     const fetchCategories = async () => {
                       try {
+                        if (!supabase) {
+                          setError('Supabase client not initialized. Please check environment variables.');
+                          return;
+                        }
+                        
                         const { data, error } = await supabase
                           .from('categories')
                           .select('*')

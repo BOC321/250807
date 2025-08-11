@@ -2,10 +2,13 @@ import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+// Only create Supabase client if environment variables are available
+const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ? createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    )
+  : null;
 
 export default function AdminSignup() {
   const [email, setEmail] = useState('');
@@ -22,6 +25,12 @@ export default function AdminSignup() {
     setError('');
 
     try {
+      if (!supabase) {
+        setError('Supabase client not initialized. Please check environment variables.');
+        setLoading(false);
+        return;
+      }
+      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,

@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+// Only create Supabase client if environment variables are available
+const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ? createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    )
+  : null;
 
 const ScoreRangesManager = ({ surveyId, categories }) => {
   const [scoreRanges, setScoreRanges] = useState([]);
@@ -26,6 +29,12 @@ const ScoreRangesManager = ({ surveyId, categories }) => {
   const fetchScoreRanges = async () => {
     try {
       setLoading(true);
+      
+      if (!supabase) {
+        setError('Supabase client not initialized. Please check environment variables.');
+        setLoading(false);
+        return;
+      }
       
       let query = supabase
         .from('score_ranges')
@@ -56,6 +65,11 @@ const ScoreRangesManager = ({ surveyId, categories }) => {
       // Validate input
       if (!newRange.minScore || !newRange.maxScore || !newRange.description) {
         setError('Please fill in all fields');
+        return;
+      }
+      
+      if (!supabase) {
+        setError('Supabase client not initialized. Please check environment variables.');
         return;
       }
       
@@ -124,6 +138,11 @@ const ScoreRangesManager = ({ surveyId, categories }) => {
     try {
       if (!editingRange) return;
       
+      if (!supabase) {
+        setError('Supabase client not initialized. Please check environment variables.');
+        return;
+      }
+      
       const minScore = parseInt(editingRange.min_score);
       const maxScore = parseInt(editingRange.max_score);
       
@@ -181,6 +200,11 @@ const ScoreRangesManager = ({ surveyId, categories }) => {
 
   const handleDeleteRange = async (id) => {
     try {
+      if (!supabase) {
+        setError('Supabase client not initialized. Please check environment variables.');
+        return;
+      }
+      
       // Instead of preventing deletion, we'll allow it and show a warning if there are gaps
       const { error } = await supabase
         .from('score_ranges')
