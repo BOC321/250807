@@ -276,7 +276,7 @@ const ScoreRangesManager = ({ surveyId, categories }) => {
           style={{ width: '100%', padding: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }}
         >
           <option value="total">Total Score</option>
-          {categories.map(category => (
+          {categories && categories.map(category => (
             <option key={category.id} value={category.id}>
               {category.title}
             </option>
@@ -386,7 +386,7 @@ const ScoreRangesManager = ({ surveyId, categories }) => {
                 </tr>
               </thead>
               <tbody>
-                {scoreRanges.map(range => (
+                {scoreRanges && scoreRanges.map(range => (
                   <tr key={range.id}>
                     <td style={{ border: '1px solid #ddd', padding: '0.5rem' }}>
                       {editingRange?.id === range.id ? (

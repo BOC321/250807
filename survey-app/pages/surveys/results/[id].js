@@ -294,7 +294,7 @@ export default function SurveyResultsPage() {
       if (updateError) throw updateError;
       
       // Call API to generate and send PDF report
-      const response = await fetch('/api/reports/generate', {
+      const response = await fetch('/api/generate-report', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
