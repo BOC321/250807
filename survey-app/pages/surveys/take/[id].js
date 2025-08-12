@@ -223,21 +223,30 @@ export default function TakeSurveyPage() {
     }
     
     // Check if we should show the next question or submit
+    // If current question is the second-to-last (index 19 of 21), next should show the last question (index 20)
+    // If current question is the last (index 20 of 21), we should submit
+    const isLastQuestion = currentQuestionIndex === flattenedQuestions.length - 1;
     const shouldShowNext = currentQuestionIndex < flattenedQuestions.length - 1;
+    
     console.log('🔄 [handleNext] Navigation condition check:', {
       currentIndex: currentQuestionIndex,
       totalQuestions: flattenedQuestions.length,
+      lastIndex: flattenedQuestions.length - 1,
+      isLastQuestion: isLastQuestion,
+      shouldShowNext: shouldShowNext,
       condition: `${currentQuestionIndex} < ${flattenedQuestions.length} - 1`,
       result: shouldShowNext,
-      explanation: shouldShowNext ? 'Show next question' : 'Submit survey'
+      explanation: shouldShowNext ? 'Show next question' : (isLastQuestion ? 'Submit survey' : 'Should not happen')
     });
     
     if (shouldShowNext) {
       console.log('🔄 [handleNext] Advancing to next question:', currentQuestionIndex + 1);
       setCurrentQuestionIndex(currentQuestionIndex + 1);
-    } else {
-      console.log('🔄 [handleNext] No more questions, submitting survey');
+    } else if (isLastQuestion) {
+      console.log('🔄 [handleNext] On last question, submitting survey');
       handleSubmit();
+    } else {
+      console.log('🔄 [handleNext] Unexpected state, staying on current question');
     }
   };
 
