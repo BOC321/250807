@@ -81,9 +81,13 @@ export default async function handler(req, res) {
   const { surveyId, respondentId, email, categoryScores, userResponses } = req.body;
 
   try {
-    console.log('Starting report generation for survey:', surveyId);
-    console.log('Received category scores:', categoryScores);
-    console.log('Received user responses:', userResponses);
+    console.log('🚀 Starting report generation for survey:', surveyId);
+    console.log('📧 Email:', email);
+    console.log('📊 Received category scores type:', typeof categoryScores);
+    console.log('📊 Received category scores value:', categoryScores);
+    console.log('📊 Received category scores keys:', categoryScores ? Object.keys(categoryScores) : 'undefined');
+    console.log('📊 Received user responses type:', typeof userResponses);
+    console.log('📊 Received user responses:', userResponses);
     
     // Add debugging information
     console.log('Supabase URL:', supabaseUrl);
@@ -173,39 +177,26 @@ export default async function handler(req, res) {
     const scoreRanges = await fetchScoreRanges(surveyId);
 
     // Use passed category scores if available, otherwise calculate them
-    let categoryScores, categoryMaxScores, totalPercentage;
+    let finalCategoryScores, totalPercentage;
     
     if (categoryScores && Object.keys(categoryScores).length > 0) {
       console.log('📊 Using passed category scores from screen');
       
-      // Convert the passed scores (which are in 0-1 range) to the format expected by the PDF
-      categoryScores = {};
-      categoryMaxScores = {};
+      // Use the exact same logic as SurveyResults component
+      finalCategoryScores = categoryScores; // These are already in 0-1 range
       
-      Object.entries(categoryScores).forEach(([categoryTitle, scorePercentage]) => {
-        // The passed scores are already in 0-1 range (percentages)
-        // Convert to the format expected by the PDF template
-        categoryScores[categoryTitle] = {
-          score: scorePercentage * 100, // Convert to 0-100 range for display
-          maxScore: 100,
-          percentage: scorePercentage * 100 // Already a percentage
-        };
-        categoryMaxScores[categoryTitle] = 100;
-      });
+      // Calculate total percentage the same way SurveyResults does
+      const totalScore = Object.values(finalCategoryScores).reduce((sum, score) => sum + score, 0);
+      totalPercentage = Object.keys(finalCategoryScores).length > 0 ? (totalScore / Object.keys(finalCategoryScores).length) * 100 : 0;
       
-      // Calculate total percentage from passed category scores
-      const totalScore = Object.values(categoryScores).reduce((sum, catData) => sum + catData.percentage, 0);
-      totalPercentage = Object.keys(categoryScores).length > 0 ? totalScore / Object.keys(categoryScores).length : 0;
-      
-      console.log('📊 Using passed scores - categoryScores:', categoryScores);
+      console.log('📊 Using passed scores - finalCategoryScores:', finalCategoryScores);
       console.log('📊 Using passed scores - totalPercentage:', totalPercentage);
     } else {
       console.log('📊 No passed scores, calculating from database');
       
-      // Original calculation logic as fallback
+      // Calculate scores the same way as the survey submission
       const getCategoryScores = () => {
         const categoryScores = {};
-        const categoryMaxScores = {};
         
         survey.categories.forEach(category => {
           const categoryQuestions = category.questions.map(q => q.id);
@@ -223,39 +214,23 @@ export default async function handler(req, res) {
             
             // Calculate maximum possible score for this category
             category.questions.forEach(question => {
-              categoryMaxScore += question.max_score || 1; // Use max_score from question, default to 1 if not set
+              categoryMaxScore += question.max_score || 1;
             });
           }
           
-          // Calculate percentage using the correct formula
-          const categoryPercentage = categoryMaxScore > 0 ? (categoryScore / categoryMaxScore) * 100 : 0;
-          
-          categoryScores[category.title] = {
-            score: categoryScore,
-            maxScore: categoryMaxScore,
-            percentage: categoryPercentage
-          };
-          
-          categoryMaxScores[category.title] = categoryMaxScore;
+          // Calculate percentage using the correct formula (0-1 range)
+          const categoryPercentage = categoryMaxScore > 0 ? (categoryScore / categoryMaxScore) : 0;
+          categoryScores[category.title] = categoryPercentage;
         });
         
-        return { categoryScores, categoryMaxScores };
+        return categoryScores;
       };
 
-      const calculatedScores = getCategoryScores();
-      categoryScores = calculatedScores.categoryScores;
-      categoryMaxScores = calculatedScores.categoryMaxScores;
-
-      // Calculate total score using the correct formula
-      let totalScore = 0;
-      let totalMaxScore = 0;
+      finalCategoryScores = getCategoryScores();
       
-      Object.values(categoryScores).forEach(categoryData => {
-        totalScore += categoryData.score;
-        totalMaxScore += categoryData.maxScore;
-      });
-      
-      totalPercentage = totalMaxScore > 0 ? (totalScore / totalMaxScore) * 100 : 0;
+      // Calculate total percentage the same way SurveyResults does
+      const totalScore = Object.values(finalCategoryScores).reduce((sum, score) => sum + score, 0);
+      totalPercentage = Object.keys(finalCategoryScores).length > 0 ? (totalScore / Object.keys(finalCategoryScores).length) * 100 : 0;
     }
 
     // Helper function to get score range (same as results page)
@@ -265,8 +240,7 @@ export default async function handler(req, res) {
 
     console.log('Fetched answers:', answers);
     console.log('Fetched score ranges:', scoreRanges);
-    console.log('Final category scores:', categoryScores);
-    console.log('Category max scores:', categoryMaxScores);
+    console.log('Final category scores (0-1 range):', finalCategoryScores);
     console.log('Total percentage:', totalPercentage);
 
     // Create a map of question_id to answer for easy lookup
@@ -318,7 +292,11 @@ export default async function handler(req, res) {
     
     const page = await browser.newPage();
     
-    // Set up page content
+    console.log('📊 Final values being used in PDF:');
+    console.log('📊 totalPercentage:', totalPercentage);
+    console.log('📊 finalCategoryScores:', finalCategoryScores);
+    
+    // Set up page content using the exact same logic as SurveyResults
     await page.setContent(`
       <h1 style="text-align: center;">Survey Report</h1>
       <h2 style="text-align: center;">${survey.title}</h2>
@@ -326,15 +304,18 @@ export default async function handler(req, res) {
       <p><strong>Generated on:</strong> ${new Date().toLocaleDateString()}</p>
       <h2>Total Score</h2>
       <p>Score: ${Math.round(totalPercentage)}%</p>
-      ${Object.keys(categoryScores).length > 0 ? `
+      ${Object.keys(finalCategoryScores).length > 0 ? `
         <h2>Category Scores</h2>
-        ${Object.entries(categoryScores).map(([category, categoryData]) => {
+        ${Object.entries(finalCategoryScores).map(([category, score]) => {
           const categoryId = survey.categories.find(c => c.title === category)?.id;
           const ranges = scoreRanges.categories[categoryId] || [];
-          const range = getScoreRange(categoryData.percentage, ranges);
+          const range = getScoreRange(score, ranges);
+          const percentage = Math.round(score * 100); // Same logic as SurveyResults
+          
+          console.log(`📊 PDF Category ${category}: score=${score}, percentage=${percentage}%`);
           
           return `
-            <p><strong>${category}:</strong> ${Math.round(categoryData.percentage)}%</p>
+            <p><strong>${category}:</strong> ${percentage}%</p>
             ${range ? `<p>Interpretation: ${range.description}</p>` : ''}
           `;
         }).join('')}

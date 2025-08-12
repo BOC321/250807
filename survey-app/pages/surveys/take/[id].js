@@ -632,6 +632,16 @@ export default function TakeSurveyPage() {
       if (updateError) throw updateError;
       
       // Call API to generate and send PDF report with calculated scores
+      console.log('📤 Sending to PDF API:', {
+        surveyId: id,
+        respondentId: recentResponse.respondent_id,
+        email,
+        categoryScores: categoryScores,
+        categoryScoresType: typeof categoryScores,
+        categoryScoresKeys: Object.keys(categoryScores),
+        userResponses: userResponses
+      });
+      
       const response = await fetch('/api/reports/generate', {
         method: 'POST',
         headers: {
