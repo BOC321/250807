@@ -35,13 +35,25 @@ export default function TakeSurveyPage() {
   const [emailError, setEmailError] = useState('');
 
   const handleResponseChange = (questionId, value) => {
-    console.log('handleResponseChange called:', questionId, 'value:', value, 'type:', typeof value);
+    console.log('📝 [handleResponseChange] called:', {
+      questionId,
+      value,
+      valueType: typeof value,
+      currentResponse: responses[questionId],
+      allResponses: responses
+    });
+    
     setResponses(prev => {
       const newResponses = {
         ...prev,
         [questionId]: value
       };
-      console.log('Updated responses:', newResponses);
+      console.log('📝 [handleResponseChange] Updated responses:', {
+        questionId,
+        oldValue: prev[questionId],
+        newValue: value,
+        newResponses: newResponses
+      });
       return newResponses;
     });
   };
@@ -560,6 +572,13 @@ export default function TakeSurveyPage() {
                   value={choice}
                   checked={responses[question.id] === choice}
                   onChange={() => {
+                    console.log('🔘 [Radio] onChange called:', {
+                      questionId: question.id,
+                      questionPrompt: question.prompt,
+                      choice,
+                      currentResponse: responses[question.id],
+                      willBeChecked: choice === responses[question.id]
+                    });
                     handleResponseChange(question.id, choice);
                     // Clear any error when user makes a selection
                     if (error) setError(null);
