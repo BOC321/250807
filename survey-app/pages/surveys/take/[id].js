@@ -243,8 +243,9 @@ export default function TakeSurveyPage() {
       console.log('🔄 [handleNext] Advancing to next question:', currentQuestionIndex + 1);
       setCurrentQuestionIndex(currentQuestionIndex + 1);
     } else if (isLastQuestion) {
-      console.log('🔄 [handleNext] On last question, submitting survey');
-      handleSubmit();
+      console.log('🔄 [handleNext] On last question, should show submit button');
+      // Don't submit automatically - let the user click the submit button
+      return;
     } else {
       console.log('🔄 [handleNext] Unexpected state, staying on current question');
     }
@@ -258,7 +259,7 @@ export default function TakeSurveyPage() {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setSubmitting(true);
     
     if (!supabase) {
@@ -740,7 +741,8 @@ export default function TakeSurveyPage() {
             <div>
               {currentQuestionIndex === flattenedQuestions.length - 1 ? (
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={handleSubmit}
                   disabled={submitting}
                   style={{
                     padding: '0.75rem 1.5rem',
