@@ -196,10 +196,13 @@ export default async function handler(req, res) {
         
         category.questions.forEach(question => {
           const answer = answers.find(a => a.question_id === question.id);
-          if (answer) {
-            categoryScore += answer.score || 0;
-          }
-          categoryMaxScore += question.max_score || 1;
+          const maxScore = Number(question.max_score) || 1;
+          const answerScore = Number(answer?.score) || 0;
+          
+          console.log(`📊 ${question.prompt}: ${answerScore}/${maxScore}`);
+          
+          categoryScore += answerScore;
+          categoryMaxScore += maxScore;
         });
         
         // Calculate percentage using the correct formula
@@ -211,8 +214,9 @@ export default async function handler(req, res) {
         totalMaxScore += categoryMaxScore;
       });
       
-      // Calculate overall percentage
-      const totalPercentage = totalMaxScore > 0 ? (totalScore / totalMaxScore) * 100 : 0;
+    // Calculate overall percentage with proper decimal handling
+    const totalPercentage = totalMaxScore > 0 ? 
+      Number(((totalScore / totalMaxScore) * 100).toFixed(2)) : 0;
       
       return {
         categoryScores,
