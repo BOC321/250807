@@ -248,7 +248,25 @@ export default async function handler(req, res) {
       return ranges.find(range => percentage >= range.min_score && percentage <= range.max_score);
     };
 
-    console.log('Fetched answers:', answers);
+    // Deep verification of answer scores
+    console.log('🔍 Answer Score Verification:');
+    answers.forEach(answer => {
+      console.log(`- Question ${answer.question_id}: ${answer.score || 0} points`);
+    });
+    
+    // Verify survey question max scores
+    console.log('🔍 Survey Max Scores Verification:');
+    survey.categories.forEach(category => {
+      category.questions.forEach(question => {
+        console.log(`- ${question.prompt}: max ${question.max_score}`);
+      });
+    });
+    
+    // Recalculate total from first principles
+    const manualTotal = answers.reduce((sum, a) => sum + (a.score || 0), 0);
+    const manualMax = survey.categories.reduce((sum, c) => 
+      sum + c.questions.reduce((catSum, q) => catSum + (q.max_score || 1), 0), 0);
+    console.log(`🔍 Manual Recalculation: ${manualTotal}/${manualMax} = ${(manualTotal/manualMax*100).toFixed(2)}%`);
     console.log('Fetched score ranges:', scoreRanges);
     console.log('Final category percentages:', finalCategoryPercentages);
     console.log('Final total percentage:', finalTotalPercentage);
