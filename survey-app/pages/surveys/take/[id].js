@@ -35,10 +35,15 @@ export default function TakeSurveyPage() {
   const [emailError, setEmailError] = useState('');
 
   const handleResponseChange = (questionId, value) => {
-    setResponses(prev => ({
-      ...prev,
-      [questionId]: value
-    }));
+    console.log('handleResponseChange called:', questionId, 'value:', value, 'type:', typeof value);
+    setResponses(prev => {
+      const newResponses = {
+        ...prev,
+        [questionId]: value
+      };
+      console.log('Updated responses:', newResponses);
+      return newResponses;
+    });
   };
 
   useEffect(() => {
@@ -139,8 +144,14 @@ export default function TakeSurveyPage() {
       // Initialize responses object
       const initialResponses = {};
       allQuestions.forEach(question => {
-        initialResponses[question.id] = '';
+        // Initialize radio buttons as null, others as empty string
+        if (question.type === 'radio') {
+          initialResponses[question.id] = null;
+        } else {
+          initialResponses[question.id] = '';
+        }
       });
+      console.log('Initial responses:', initialResponses);
       setResponses(initialResponses);
     } catch (err) {
       console.error('Error in fetchSurveyData:', err);
@@ -215,6 +226,10 @@ export default function TakeSurveyPage() {
       let isValid = true;
       const validationErrors = {};
       
+      console.log('Starting handleSubmit validation...');
+      console.log('All responses:', responses);
+      console.log('All flattened questions:', flattenedQuestions);
+      
       flattenedQuestions.forEach(question => {
         if (question.required) {
           const response = responses[question.id];
@@ -231,13 +246,20 @@ export default function TakeSurveyPage() {
             isEmpty = !response || response === '';
           }
           
+          console.log('Question:', question.id, 'Type:', question.type, 'Required:', question.required, 'Response:', response, 'IsEmpty:', isEmpty);
+          
           if (isEmpty) {
             isValid = false;
             validationErrors[question.id] = 'This question is required';
-            console.log('Validation failed in handleSubmit for question:', question.id, 'Type:', question.type, 'Response:', response);
+            console.log('❌ Validation failed for question:', question.id, 'Type:', question.type, 'Response:', response);
+          } else {
+            console.log('✅ Validation passed for question:', question.id, 'Type:', question.type, 'Response:', response);
           }
         }
       });
+      
+      console.log('Final validation result:', isValid);
+      console.log('Validation errors:', validationErrors);
       
       if (!isValid) {
         setError('Please answer all required questions');
