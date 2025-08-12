@@ -463,10 +463,12 @@ export default function TakeSurveyPage() {
       
       // Calculate category scores using the same logic as answer scoring
       const calculatedCategoryScores = {};
+      const categoryMaxScores = {};
       
       // Initialize scores for each category using proper category IDs
       categories.forEach(category => {
         calculatedCategoryScores[category.id] = 0;
+        categoryMaxScores[category.id] = 0;
       });
       
       // Create a map to find category ID by question
@@ -474,13 +476,30 @@ export default function TakeSurveyPage() {
       categories.forEach(category => {
         category.questions.forEach(question => {
           questionToCategoryMap[question.id] = category.id;
+          // Calculate maximum possible score for this question
+          if (question.scorable) {
+            if (question.type === 'rating') {
+              categoryMaxScores[category.id] += 5; // Rating questions typically go 1-5
+            } else if (question.type === 'radio' || question.type === 'select') {
+              // For single choice, max score is the highest choice score
+              const choiceScores = choiceScoresMap[question.id] || [];
+              const maxChoiceScore = Math.max(...choiceScores.filter(score => score !== undefined), 0);
+              categoryMaxScores[category.id] += maxChoiceScore;
+            } else if (question.type === 'checkbox') {
+              // For multiple choice, max score is sum of all choice scores
+              const choiceScores = choiceScoresMap[question.id] || [];
+              const maxChoiceScore = choiceScores.reduce((sum, score) => sum + (score || 0), 0);
+              categoryMaxScores[category.id] += maxChoiceScore;
+            }
+          }
         });
       });
       
       console.log('📊 Category score calculation:', {
         categories: categories.map(c => ({ id: c.id, title: c.title })),
         questionToCategoryMap: questionToCategoryMap,
-        choiceScoresMap: choiceScoresMap
+        choiceScoresMap: choiceScoresMap,
+        categoryMaxScores: categoryMaxScores
       });
       
       // Sum scores based on responses using the same logic as answer calculation
@@ -534,8 +553,17 @@ export default function TakeSurveyPage() {
         }
       }
       
-      console.log('📊 Final category scores:', calculatedCategoryScores);
-      setCategoryScores(calculatedCategoryScores);
+      // Convert raw scores to percentages (0-1 range) for display
+      const categoryScorePercentages = {};
+      Object.keys(calculatedCategoryScores).forEach(categoryId => {
+        const rawScore = calculatedCategoryScores[categoryId];
+        const maxScore = categoryMaxScores[categoryId];
+        categoryScorePercentages[categoryId] = maxScore > 0 ? (rawScore / maxScore) : 0;
+        console.log(`📊 Category ${categoryId}: ${rawScore}/${maxScore} = ${categoryScorePercentages[categoryId]}`);
+      });
+      
+      console.log('📊 Final category scores (percentages):', categoryScorePercentages);
+      setCategoryScores(categoryScorePercentages);
       setUserResponses(responses);
       
       // Redirect directly to thank you page without intermediate state
