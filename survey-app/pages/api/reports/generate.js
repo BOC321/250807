@@ -11,6 +11,20 @@ console.log('SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY 
 console.log('GMAIL_EMAIL:', process.env.GMAIL_EMAIL ? 'Present' : 'Missing');
 console.log('GMAIL_APP_PASSWORD:', process.env.GMAIL_APP_PASSWORD ? 'Present' : 'Missing');
 
+// Debug Chromium setup
+console.log('Chromium debug:');
+console.log('Platform:', process.platform);
+console.log('Chromium available:', chromium ? 'Yes' : 'No');
+console.log('Chromium headless:', chromium.headless);
+console.log('Chromium args length:', chromium.args ? chromium.args.length : 'None');
+
+// Get executable path for debugging
+chromium.executablePath().then(path => {
+  console.log('Chromium executable path:', path);
+}).catch(err => {
+  console.error('Error getting Chromium executable path:', err);
+});
+
 // Initialize Supabase client with error handling
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -227,8 +241,9 @@ export default async function handler(req, res) {
     });
 
     // Generate PDF report in memory
+    console.log('Launching browser with Chromium...');
+    
     const browser = await puppeteer.launch({
-      headless: chromium.headless,
       args: [
         ...chromium.args,
         '--no-sandbox',
@@ -237,11 +252,23 @@ export default async function handler(req, res) {
         '--disable-accelerated-2d-canvas',
         '--no-first-run',
         '--no-zygote',
-        '--disable-gpu'
+        '--disable-gpu',
+        '--disable-extensions',
+        '--disable-plugins',
+        '--disable-images',
+        '--disable-javascript-harmony-promises',
+        '--disable-wake-on-wifi',
+        '--disable-features=site-per-process',
+        '--disable-ipc-flooding-protection'
       ],
+      defaultViewport: chromium.defaultViewport,
       executablePath: await chromium.executablePath(),
-      ignoreDefaultArgs: ['--disable-extensions']
+      headless: chromium.headless,
+      ignoreHTTPSErrors: true,
     });
+    
+    console.log('Browser launched successfully');
+    
     const page = await browser.newPage();
     
     // Set up page content
