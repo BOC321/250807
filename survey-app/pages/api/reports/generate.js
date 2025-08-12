@@ -36,6 +36,21 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// Helper to check if column exists
+async function columnExists(tableName, columnName) {
+  const { data, error } = await supabase
+    .rpc('column_exists', { 
+      table_name: tableName,
+      column_name: columnName 
+    });
+  
+  if (error) {
+    console.error(`Column check error for ${tableName}.${columnName}:`, error);
+    return false;
+  }
+  return data;
+}
+
 // Real email service using Gmail SMTP
 class EmailService {
   constructor() {
@@ -78,16 +93,11 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-    const { surveyId, respondentId, email, categoryPercentages, totalPercentage, userResponses } = req.body;
+  const { surveyId, respondentId, email } = req.body;
 
   try {
     console.log('🚀 Starting report generation for survey:', surveyId);
     console.log('📧 Email:', email);
-    console.log('📊 Received category scores type:', typeof categoryScores);
-    console.log('📊 Received category scores value:', categoryScores);
-    console.log('📊 Received category scores keys:', categoryScores ? Object.keys(categoryScores) : 'undefined');
-    console.log('📊 Received user responses type:', typeof userResponses);
-    console.log('📊 Received user responses:', userResponses);
     
     // Add debugging information
     console.log('Supabase URL:', supabaseUrl);
@@ -214,9 +224,9 @@ export default async function handler(req, res) {
         totalMaxScore += categoryMaxScore;
       });
       
-    // Calculate overall percentage with proper decimal handling
-    const totalPercentage = totalMaxScore > 0 ? 
-      Number(((totalScore / totalMaxScore) * 100).toFixed(2)) : 0;
+      // Calculate overall percentage with proper decimal handling
+      const totalPercentage = totalMaxScore > 0 ? 
+        Number(((totalScore / totalMaxScore) * 100).toFixed(2)) : 0;
       
       return {
         categoryScores,
@@ -326,64 +336,74 @@ export default async function handler(req, res) {
     
     // Set up page content using the exact same logic as SurveyResults
     await page.setContent(`
-      <h1 style="text-align: center;">Survey Report</h1>
-      <h2 style="text-align: center;">${survey.title}</h2>
-      <p><strong>Respondent Name:</strong> ${respondent.name || 'Anonymous'}</p>
-      <p><strong>Generated on:</strong> ${new Date().toLocaleDateString()}</p>
-      <h2>Total Score</h2>
-      <p>Score: ${Math.round(finalTotalPercentage)}%</p>
-      ${Object.keys(finalCategoryPercentages).length > 0 ? `
-        <h2>Category Scores</h2>
-        ${Object.entries(finalCategoryPercentages).map(([category, percentage]) => {
-          const categoryId = survey.categories.find(c => c.title === category)?.id;
-          const ranges = scoreRanges.categories[categoryId] || [];
-          const range = getScoreRange(percentage, ranges);
-          
-          console.log(`📊 PDF Category ${category}: percentage=${Math.round(percentage)}%`);
-          
-          return `
-            <p><strong>${category}:</strong> ${Math.round(percentage)}%</p>
-            ${range ? `<p>Interpretation: ${range.description}</p>` : ''}
-          `;
-        }).join('')}
-      ` : ''}
-      <h2>Detailed Responses</h2>
-      ${survey.categories ? survey.categories.map((category) => {
-        return `
-          <h3>${category.title}</h3>
-          ${category.questions ? category.questions.map((question) => {
-            // Get the user's answer for this question
-            const userAnswer = answerMap[question.id];
-            let answerText = 'Not answered';
-            
-            if (userAnswer) {
-              if (typeof userAnswer === 'string') {
-                answerText = userAnswer;
-              } else if (typeof userAnswer === 'object') {
-                // Handle different types of answer objects
-                if (userAnswer.answer) {
-                  answerText = userAnswer.answer;
-                } else if (userAnswer.value) {
-                  answerText = userAnswer.value;
-                } else if (Array.isArray(userAnswer)) {
-                  answerText = userAnswer.join(', ');
-                } else {
-                  answerText = JSON.stringify(userAnswer);
-                }
-              } else {
-                answerText = String(userAnswer);
-              }
-            }
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body { font-family: sans-serif; padding: 2rem; max-width: 800px; margin: 0 auto; }
+          h1, h2, h3 { color: #333; }
+          .score-range { margin-top: 0.5rem; padding: 0.75rem; border-left: 4px solid; background-color: #f8f9fa; }
+          .response-item { margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #ddd; border-radius: 4px; }
+        </style>
+      </head>
+      <body>
+        <h1>Survey Report</h1>
+        <h2>${survey.title}</h2>
+        <p><strong>Respondent Name:</strong> ${respondent.name || 'Anonymous'}</p>
+        <p><strong>Generated on:</strong> ${new Date().toLocaleDateString()}</p>
+        
+        <h2>Total Score</h2>
+        <p>Score: ${Math.round(finalTotalPercentage)}%</p>
+        
+        ${Object.keys(finalCategoryPercentages).length > 0 ? `
+          <h2>Category Scores</h2>
+          ${Object.entries(finalCategoryPercentages).map(([category, percentage]) => {
+            const categoryId = survey.categories.find(c => c.title === category)?.id;
+            const ranges = scoreRanges.categories[categoryId] || [];
+            const range = getScoreRange(percentage, ranges);
             
             return `
-              <div style="margin-bottom: 20px;">
-                <strong>Question:</strong> ${question.prompt || question.text}<br>
-                <strong>Answer:</strong> ${answerText}
+              <div>
+                <p><strong>${category}:</strong> ${Math.round(percentage)}%</p>
+                ${range ? `<div class="score-range" style="border-color: ${range.color};">${range.description}</div>` : ''}
               </div>
             `;
-          }).join('') : ''}
-        `;
-      }).join('') : ''}
+          }).join('')}
+        ` : ''}
+        
+        <h2>Detailed Responses</h2>
+        ${survey.categories ? survey.categories.map(category => `
+          <div class="response-item">
+            <h3>${category.title}</h3>
+            ${category.questions ? category.questions.map(question => {
+              const userAnswer = answerMap[question.id];
+              let answerText = 'Not answered';
+              
+              if (userAnswer) {
+                if (typeof userAnswer === 'string') {
+                  answerText = userAnswer;
+                } else if (typeof userAnswer === 'object') {
+                  if (userAnswer.answer) answerText = userAnswer.answer;
+                  else if (userAnswer.value) answerText = userAnswer.value;
+                  else if (Array.isArray(userAnswer)) answerText = userAnswer.join(', ');
+                  else answerText = JSON.stringify(userAnswer);
+                } else {
+                  answerText = String(userAnswer);
+                }
+              }
+              
+              return `
+                <div>
+                  <p><strong>Question:</strong> ${question.prompt || question.text}</p>
+                  <p><strong>Answer:</strong> ${answerText}</p>
+                </div>
+              `;
+            }).join('') : ''}
+          </div>
+        `).join('') : ''}
+      </body>
+      </html>
     `);
 
     // Generate PDF from page
@@ -410,10 +430,44 @@ export default async function handler(req, res) {
     }
 
     console.log('PDF uploaded successfully:', uploadData);
+    
+    // DEBUG: Log all answers with scores
+    console.log('🧮 FINAL SCORE VERIFICATION:');
+    answers.forEach(a => {
+      console.log(`- Q${a.question_id}: ${a.score || 0} points`);
+    });
+    console.log('🧮 TOTAL RAW SCORE:', answers.reduce((sum, a) => sum + (a.score || 0), 0));
 
     // Generate a direct link to our serve-report API
     const serveUrl = `${req.headers.origin}/api/reports/serve?fileName=${encodeURIComponent(fileName)}`;
     console.log('Serve URL:', serveUrl);
+
+    // Update respondent record (gracefully handle missing columns)
+    const updateData = { report_url: serveUrl };
+    
+    try {
+      // Check if report_generated_at column exists
+      const { data: columnExists } = await supabase
+        .rpc('column_exists', { 
+          table_name: 'respondents', 
+          column_name: 'report_generated_at' 
+        });
+      
+      if (columnExists) {
+        updateData.report_generated_at = new Date().toISOString();
+      }
+    } catch (err) {
+      console.log('Column check failed, proceeding without report_generated_at');
+    }
+
+    const { error: updateError } = await supabase
+      .from('respondents')
+      .update(updateData)
+      .eq('id', respondentId);
+
+    if (updateError) {
+      console.error('Error updating respondent:', updateError);
+    }
 
     // Send email with report link using real email service
     await emailService.sendEmail({
