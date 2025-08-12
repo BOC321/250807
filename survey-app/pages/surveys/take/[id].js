@@ -163,6 +163,8 @@ export default function TakeSurveyPage() {
 
   // New functions for question-by-question flow
   const handleNext = () => {
+    console.log('handleNext called. Current index:', currentQuestionIndex, 'Total questions:', flattenedQuestions.length);
+    
     // Validate current question if required
     const currentQuestion = flattenedQuestions[currentQuestionIndex];
     const currentResponse = responses[currentQuestion.id];
@@ -199,8 +201,13 @@ export default function TakeSurveyPage() {
     
     setError(null);
     
+    console.log('About to navigate. Current index:', currentQuestionIndex, 'Total questions:', flattenedQuestions.length - 1);
+    
     if (currentQuestionIndex < flattenedQuestions.length - 1) {
+      console.log('Advancing to next question');
       setCurrentQuestionIndex(currentQuestionIndex + 1);
+    } else {
+      console.log('Already at last question, should show submit button');
     }
   };
 
@@ -629,6 +636,13 @@ export default function TakeSurveyPage() {
       {/* Category title */}
       <div style={{ marginBottom: '1rem' }}>
         <h2>{currentQuestion.categoryTitle}</h2>
+      </div>
+      
+      {/* Debug info */}
+      <div style={{ marginBottom: '1rem', padding: '0.5rem', backgroundColor: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: '4px' }}>
+        <strong>Debug:</strong> Question {currentQuestionIndex + 1} of {flattenedQuestions.length} | 
+        Current Question ID: {currentQuestion?.id} | 
+        Prompt: "{currentQuestion?.prompt}"
       </div>
       
       {surveyCompleted ? (
