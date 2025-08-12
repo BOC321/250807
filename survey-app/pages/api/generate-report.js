@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 import nodemailer from 'nodemailer';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -247,10 +248,40 @@ export default async function handler(req, res) {
     console.log('Will upload PDF to Supabase storage with fileName:', fileName);
 
     try {
-      // Launch a headless browser
+      // Launch a headless browser using Chromium
+      const executablePath = await chromium.executablePath();
+      console.log('Using executable path:', executablePath);
+      
       const browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--no-first-run',
+          '--no-zygote',
+          '--disable-gpu',
+          '--disable-extensions',
+          '--disable-plugins',
+          '--disable-images',
+          '--disable-javascript-harmony-promises',
+          '--disable-wake-on-wifi',
+          '--disable-features=site-per-process',
+          '--disable-ipc-flooding-protection',
+          '--disable-background-timer-throttling',
+          '--disable-renderer-backgrounding',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-client-side-phishing-detection',
+          '--disable-crash-reporter',
+          '--disable-extensions-except=test',
+          '--disable-features=TranslateUI',
+          '--disable-ipc-flooding-protection',
+          '--enable-unsafe-swiftshader',
+          '--single-process'
+        ],
+        executablePath: executablePath,
+        headless: 'new',
+        ignoreHTTPSErrors: true,
       });
       
       // Create a new page
