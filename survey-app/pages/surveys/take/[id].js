@@ -607,17 +607,49 @@ export default function TakeSurveyPage() {
         return;
       }
       
-      // Send email with report
-      const { data, error } = await supabase
-        .functions
-        .invoke('send-survey-report', {
-          body: {
-            surveyId: id,
-            email: email
-          }
-        });
+      // Get the most recent response for this survey to get respondent ID
+      const { data: responsesData, error: responsesError } = await supabase
+        .from('responses')
+        .select('*')
+        .eq('survey_id', id)
+        .order('completed_at', { ascending: false })
+        .limit(1);
+
+      if (responsesError) throw responsesError;
       
-      if (error) throw error;
+      if (!responsesData || responsesData.length === 0) {
+        throw new Error('No response found for this survey');
+      }
+      
+      const recentResponse = responsesData[0];
+      
+      // Update the respondent record with the email
+      const { error: updateError } = await supabase
+        .from('respondents')
+        .update({ email })
+        .eq('id', recentResponse.respondent_id);
+      
+      if (updateError) throw updateError;
+      
+      // Call API to generate and send PDF report with calculated scores
+      const response = await fetch('/api/reports/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          surveyId: id,
+          respondentId: recentResponse.respondent_id,
+          email,
+          categoryScores: categoryScores, // Pass the calculated scores from screen
+          userResponses: userResponses // Pass the user responses
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate report');
+      }
       
       setEmailSent(true);
     } catch (err) {
