@@ -461,28 +461,80 @@ export default function TakeSurveyPage() {
       
       if (answersError) throw answersError;
       
-      // Calculate category scores
+      // Calculate category scores using the same logic as answer scoring
       const calculatedCategoryScores = {};
       
-      // Initialize scores for each category
+      // Initialize scores for each category using proper category IDs
       categories.forEach(category => {
         calculatedCategoryScores[category.id] = 0;
       });
       
-      // Sum scores based on responses
+      // Create a map to find category ID by question
+      const questionToCategoryMap = {};
+      categories.forEach(category => {
+        category.questions.forEach(question => {
+          questionToCategoryMap[question.id] = category.id;
+        });
+      });
+      
+      console.log('📊 Category score calculation:', {
+        categories: categories.map(c => ({ id: c.id, title: c.title })),
+        questionToCategoryMap: questionToCategoryMap,
+        choiceScoresMap: choiceScoresMap
+      });
+      
+      // Sum scores based on responses using the same logic as answer calculation
       for (const questionId in responses) {
         const question = flattenedQuestions.find(q => q.id === questionId);
         
         if (question && question.scorable) {
-          const categoryId = question.categoryTitle;
-          const score = parseInt(responses[questionId]) || 0;
+          let score = 0;
           
-          if (calculatedCategoryScores[categoryId] !== undefined) {
+          if (question.type === 'radio' || question.type === 'select') {
+            // For single choice, get the score of the selected option
+            const choiceIndex = question.choices.indexOf(responses[questionId]);
+            if (choiceIndex !== -1) {
+              const choiceScores = choiceScoresMap[questionId] || [];
+              if (choiceScores[choiceIndex] !== undefined) {
+                score = choiceScores[choiceIndex];
+              }
+            }
+          } else if (question.type === 'checkbox') {
+            // For multiple choice, sum the scores of selected options
+            const selectedOptions = Array.isArray(responses[questionId]) 
+              ? responses[questionId] 
+              : [responses[questionId]];
+            
+            const choiceScores = choiceScoresMap[questionId] || [];
+            
+            score = selectedOptions.reduce((sum, option) => {
+              const choiceIndex = question.choices.indexOf(option);
+              if (choiceIndex !== -1 && choiceScores[choiceIndex] !== undefined) {
+                return sum + choiceScores[choiceIndex];
+              }
+              return sum;
+            }, 0);
+          } else if (question.type === 'rating') {
+            // For rating, use the selected value as the score
+            score = parseInt(responses[questionId]) || 0;
+          }
+          
+          // Use the proper category ID from the map
+          const categoryId = questionToCategoryMap[questionId];
+          if (categoryId && calculatedCategoryScores[categoryId] !== undefined) {
             calculatedCategoryScores[categoryId] += score;
+            console.log(`📊 Added score ${score} to category ${categoryId} for question ${questionId}`);
+          } else {
+            console.log(`⚠️ Could not find category for question ${questionId}`, {
+              question,
+              categoryId,
+              availableCategories: Object.keys(calculatedCategoryScores)
+            });
           }
         }
       }
       
+      console.log('📊 Final category scores:', calculatedCategoryScores);
       setCategoryScores(calculatedCategoryScores);
       setUserResponses(responses);
       
