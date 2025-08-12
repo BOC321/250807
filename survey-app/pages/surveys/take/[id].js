@@ -369,9 +369,8 @@ export default function TakeSurveyPage() {
       
       setCategoryScores(calculatedCategoryScores);
       setUserResponses(responses);
-      setSurveyCompleted(true);
       
-      // Redirect to a thank you page
+      // Redirect directly to thank you page without intermediate state
       router.push({
         pathname: '/surveys/thank-you',
         query: { surveyId: id }
@@ -450,14 +449,19 @@ export default function TakeSurveyPage() {
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             {question.choices.map((choice, index) => (
-              <label key={index} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <label key={index} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                 <input
                   type="radio"
                   name={`question-${question.id}`}
                   value={choice}
                   checked={responses[question.id] === choice}
-                  onChange={() => handleResponseChange(question.id, choice)}
+                  onChange={() => {
+                    handleResponseChange(question.id, choice);
+                    // Clear any error when user makes a selection
+                    if (error) setError(null);
+                  }}
                   required={question.required}
+                  style={{ cursor: 'pointer' }}
                 />
                 {choice}
               </label>
