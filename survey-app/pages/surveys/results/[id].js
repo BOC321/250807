@@ -306,6 +306,12 @@ export default function SurveyResultsPage() {
       
       if (updateError) throw updateError;
       
+      // Prepare category percentages for PDF report
+      const categoryPercentages = {};
+      Object.entries(categoryScores).forEach(([category, data]) => {
+        categoryPercentages[category] = data.percentage;
+      });
+
       // Call API to generate and send PDF report
       const response = await fetch('/api/generate-report', {
         method: 'POST',
@@ -315,7 +321,9 @@ export default function SurveyResultsPage() {
         body: JSON.stringify({
           surveyId: id,
           respondentId: recentResponse.respondent_id,
-          email
+          email,
+          categoryPercentages,
+          totalPercentage
         }),
       });
       

@@ -78,7 +78,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { surveyId, respondentId, email, categoryScores, userResponses } = req.body;
+    const { surveyId, respondentId, email, categoryPercentages, totalPercentage, userResponses } = req.body;
 
   try {
     console.log('🚀 Starting report generation for survey:', surveyId);
@@ -176,23 +176,16 @@ export default async function handler(req, res) {
 
     const scoreRanges = await fetchScoreRanges(surveyId);
 
-    // Use passed category scores if available, otherwise calculate them
-    let finalCategoryScores, totalPercentage;
+    // Use passed category percentages if available, otherwise calculate them
+    let finalCategoryPercentages = {};
+    let finalTotalPercentage = 0;
     
-    if (categoryScores && Object.keys(categoryScores).length > 0) {
-      console.log('📊 Using passed category scores from screen');
-      
-      // Use the exact same logic as SurveyResults component
-      finalCategoryScores = categoryScores; // These are already in 0-1 range
-      
-      // Calculate total percentage the same way SurveyResults does
-      const totalScore = Object.values(finalCategoryScores).reduce((sum, score) => sum + score, 0);
-      totalPercentage = Object.keys(finalCategoryScores).length > 0 ? (totalScore / Object.keys(finalCategoryScores).length) * 100 : 0;
-      
-      console.log('📊 Using passed scores - finalCategoryScores:', finalCategoryScores);
-      console.log('📊 Using passed scores - totalPercentage:', totalPercentage);
+    if (categoryPercentages && Object.keys(categoryPercentages).length > 0) {
+      console.log('📊 Using passed category percentages from screen');
+      finalCategoryPercentages = categoryPercentages;
+      finalTotalPercentage = totalPercentage;
     } else {
-      console.log('📊 No passed scores, calculating from database');
+      console.log('📊 No passed percentages, calculating from database');
       
       // Calculate scores the same way as the survey submission
       const getCategoryScores = () => {
@@ -218,19 +211,19 @@ export default async function handler(req, res) {
             });
           }
           
-          // Calculate percentage using the correct formula (0-1 range)
-          const categoryPercentage = categoryMaxScore > 0 ? (categoryScore / categoryMaxScore) : 0;
+          // Calculate percentage using the correct formula
+          const categoryPercentage = categoryMaxScore > 0 ? (categoryScore / categoryMaxScore) * 100 : 0;
           categoryScores[category.title] = categoryPercentage;
         });
         
         return categoryScores;
       };
 
-      finalCategoryScores = getCategoryScores();
+      finalCategoryPercentages = getCategoryScores();
       
-      // Calculate total percentage the same way SurveyResults does
-      const totalScore = Object.values(finalCategoryScores).reduce((sum, score) => sum + score, 0);
-      totalPercentage = Object.keys(finalCategoryScores).length > 0 ? (totalScore / Object.keys(finalCategoryScores).length) * 100 : 0;
+      // Calculate total percentage
+      const totalScore = Object.values(finalCategoryPercentages).reduce((sum, score) => sum + score, 0);
+      finalTotalPercentage = Object.keys(finalCategoryPercentages).length > 0 ? (totalScore / Object.keys(finalCategoryPercentages).length) : 0;
     }
 
     // Helper function to get score range (same as results page)
