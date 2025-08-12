@@ -154,30 +154,36 @@ export default function TakeSurveyPage() {
   const handleNext = () => {
     // Validate current question if required
     const currentQuestion = flattenedQuestions[currentQuestionIndex];
+    const currentResponse = responses[currentQuestion.id];
+    
+    console.log('Validating question:', currentQuestion.id, 'Type:', currentQuestion.type, 'Response:', currentResponse, 'Required:', currentQuestion.required);
     
     // Check if the question is required and empty
-    if (currentQuestion.required && (!responses[currentQuestion.id] || responses[currentQuestion.id] === '')) {
-      setError('You must select an answer before clicking on Next');
+    if (currentQuestion.required) {
+      let isEmpty = false;
       
-      // Clear the error after 5 seconds
-      setTimeout(() => {
-        setError(null);
-      }, 5000);
+      if (currentQuestion.type === 'radio') {
+        // For radio buttons, check if no selection is made
+        isEmpty = !currentResponse || currentResponse === '' || currentResponse === null;
+      } else if (currentQuestion.type === 'checkbox') {
+        // For checkboxes, check if array is empty
+        isEmpty = !currentResponse || !Array.isArray(currentResponse) || currentResponse.length === 0;
+      } else {
+        // For text, textarea, etc.
+        isEmpty = !currentResponse || currentResponse === '';
+      }
       
-      return;
-    }
-    
-    // For checkbox type, ensure at least one option is selected if required
-    if (currentQuestion.required && currentQuestion.type === 'checkbox' && 
-        (!responses[currentQuestion.id] || responses[currentQuestion.id].length === 0)) {
-      setError('You must select an answer before clicking on Next');
-      
-      // Clear the error after 5 seconds
-      setTimeout(() => {
-        setError(null);
-      }, 5000);
-      
-      return;
+      if (isEmpty) {
+        console.log('Validation failed for question:', currentQuestion.id);
+        setError('You must select an answer before clicking on Next');
+        
+        // Clear the error after 5 seconds
+        setTimeout(() => {
+          setError(null);
+        }, 5000);
+        
+        return;
+      }
     }
     
     setError(null);
@@ -460,7 +466,6 @@ export default function TakeSurveyPage() {
                     // Clear any error when user makes a selection
                     if (error) setError(null);
                   }}
-                  required={question.required}
                   style={{ cursor: 'pointer' }}
                 />
                 {choice}
@@ -604,7 +609,7 @@ export default function TakeSurveyPage() {
           </div>
         </div>
       ) : (
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <div style={{ marginBottom: '2rem' }}>
             <div style={{ marginBottom: '0.5rem' }}>
               <label style={{ fontWeight: 'bold' }}>
