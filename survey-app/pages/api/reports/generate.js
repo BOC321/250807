@@ -221,6 +221,23 @@ export default async function handler(req, res) {
     };
 
     const { categoryScores: finalCategoryPercentages, totalPercentage: finalTotalPercentage } = getCategoryScores();
+    
+    // Debug: Log detailed score calculation
+    console.log('📊 Detailed Score Breakdown:');
+    survey.categories.forEach(category => {
+      console.log(`\nCategory: ${category.title}`);
+      category.questions.forEach(question => {
+        const answer = answers.find(a => a.question_id === question.id);
+        const maxScore = question.max_score || 1;
+        console.log(`- Question: ${question.prompt || question.text}`);
+        console.log(`  Answer ID: ${answer?.id || 'none'}`);
+        console.log(`  Answer Score: ${answer?.score || 0}/${maxScore}`);
+      });
+    });
+    console.log('📊 Final Calculation Summary:');
+    console.log(`Total Raw Score: ${totalScore}`);
+    console.log(`Total Max Score: ${totalMaxScore}`);
+    console.log(`Calculated Percentage: ${finalTotalPercentage}%`);
 
     // Helper function to get score range (same as results page)
     const getScoreRange = (percentage, ranges) => {
