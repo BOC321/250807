@@ -216,9 +216,26 @@ export default function TakeSurveyPage() {
       const validationErrors = {};
       
       flattenedQuestions.forEach(question => {
-        if (question.required && (!responses[question.id] || responses[question.id] === '')) {
-          isValid = false;
-          validationErrors[question.id] = 'This question is required';
+        if (question.required) {
+          const response = responses[question.id];
+          let isEmpty = false;
+          
+          if (question.type === 'radio') {
+            // For radio buttons, check if no selection is made
+            isEmpty = !response || response === '' || response === null;
+          } else if (question.type === 'checkbox') {
+            // For checkboxes, check if array is empty
+            isEmpty = !response || !Array.isArray(response) || response.length === 0;
+          } else {
+            // For text, textarea, etc.
+            isEmpty = !response || response === '';
+          }
+          
+          if (isEmpty) {
+            isValid = false;
+            validationErrors[question.id] = 'This question is required';
+            console.log('Validation failed in handleSubmit for question:', question.id, 'Type:', question.type, 'Response:', response);
+          }
         }
       });
       
