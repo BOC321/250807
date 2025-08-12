@@ -164,6 +164,42 @@ export default function TakeSurveyPage() {
   };
 
   // New functions for question-by-question flow
+  const validateQuestion = (question, response) => {
+    console.log('🔍 [validateQuestion] Validating:', {
+      questionId: question.id,
+      questionText: question.text,
+      questionType: question.type,
+      required: question.required,
+      response: response
+    });
+
+    if (!question.required) {
+      console.log('✅ [validateQuestion] Question not required, validation passed');
+      return true;
+    }
+
+    let isEmpty = false;
+
+    if (question.type === 'radio') {
+      // For radio buttons, check if no selection is made
+      isEmpty = !response || response === '' || response === null;
+    } else if (question.type === 'checkbox') {
+      // For checkboxes, check if array is empty
+      isEmpty = !response || !Array.isArray(response) || response.length === 0;
+    } else {
+      // For text, textarea, etc.
+      isEmpty = !response || response === '';
+    }
+
+    console.log('🔍 [validateQuestion] Validation result:', {
+      isEmpty: isEmpty,
+      isValid: !isEmpty,
+      details: `Type: ${question.type}, Required: ${question.required}, Response: ${response}`
+    });
+
+    return !isEmpty;
+  };
+
   const handleNext = () => {
     console.log('🔄 [handleNext] Starting navigation');
     console.log('🔄 [handleNext] Current question index:', currentQuestionIndex);
