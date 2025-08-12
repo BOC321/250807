@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import puppeteer from 'puppeteer';
+import chromium from '@sparticuz/chromium';
 import nodemailer from 'nodemailer';
 
 // Debug: Log all environment variables
@@ -227,8 +228,9 @@ export default async function handler(req, res) {
 
     // Generate PDF report in memory
     const browser = await puppeteer.launch({
-      headless: true,
+      headless: chromium.headless,
       args: [
+        ...chromium.args,
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
@@ -237,7 +239,8 @@ export default async function handler(req, res) {
         '--no-zygote',
         '--disable-gpu'
       ],
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
+      executablePath: await chromium.executablePath(),
+      ignoreDefaultArgs: ['--disable-extensions']
     });
     const page = await browser.newPage();
     
