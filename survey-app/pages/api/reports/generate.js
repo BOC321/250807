@@ -176,55 +176,51 @@ export default async function handler(req, res) {
 
     const scoreRanges = await fetchScoreRanges(surveyId);
 
-    // Use passed category percentages if available, otherwise calculate them
-    let finalCategoryPercentages = {};
-    let finalTotalPercentage = 0;
+    // Always calculate scores directly from database answers
+    console.log('📊 Calculating scores directly from database answers');
     
-    if (categoryPercentages && Object.keys(categoryPercentages).length > 0) {
-      console.log('📊 Using passed category percentages from screen');
-      finalCategoryPercentages = categoryPercentages;
-      finalTotalPercentage = totalPercentage;
-    } else {
-      console.log('📊 No passed percentages, calculating from database');
+    const getCategoryScores = () => {
+      const categoryScores = {};
+      let totalScore = 0;
+      let totalMaxScore = 0;
       
-      // Calculate scores the same way as the survey submission
-      const getCategoryScores = () => {
-        const categoryScores = {};
+      survey.categories.forEach(category => {
+        const categoryQuestions = category.questions.map(q => q.id);
+        const categoryAnswers = answers.filter(answer => 
+          categoryQuestions.includes(answer.question_id) && answer.score !== null
+        );
         
-        survey.categories.forEach(category => {
-          const categoryQuestions = category.questions.map(q => q.id);
-          const categoryAnswers = answers.filter(answer => 
-            categoryQuestions.includes(answer.question_id) && answer.score !== null
-          );
-          
-          // Calculate actual score for the category
-          let categoryScore = 0;
-          let categoryMaxScore = 0;
-          
-          if (categoryAnswers.length > 0) {
-            // Sum the actual scores
-            categoryScore = categoryAnswers.reduce((sum, answer) => sum + (answer.score || 0), 0);
-            
-            // Calculate maximum possible score for this category
-            category.questions.forEach(question => {
-              categoryMaxScore += question.max_score || 1;
-            });
+        // Calculate actual score for the category
+        let categoryScore = 0;
+        let categoryMaxScore = 0;
+        
+        category.questions.forEach(question => {
+          const answer = answers.find(a => a.question_id === question.id);
+          if (answer) {
+            categoryScore += answer.score || 0;
           }
-          
-          // Calculate percentage using the correct formula
-          const categoryPercentage = categoryMaxScore > 0 ? (categoryScore / categoryMaxScore) * 100 : 0;
-          categoryScores[category.title] = categoryPercentage;
+          categoryMaxScore += question.max_score || 1;
         });
         
-        return categoryScores;
-      };
-
-      finalCategoryPercentages = getCategoryScores();
+        // Calculate percentage using the correct formula
+        const categoryPercentage = categoryMaxScore > 0 ? (categoryScore / categoryMaxScore) * 100 : 0;
+        categoryScores[category.title] = categoryPercentage;
+        
+        // Accumulate totals
+        totalScore += categoryScore;
+        totalMaxScore += categoryMaxScore;
+      });
       
-      // Calculate total percentage
-      const totalScore = Object.values(finalCategoryPercentages).reduce((sum, score) => sum + score, 0);
-      finalTotalPercentage = Object.keys(finalCategoryPercentages).length > 0 ? (totalScore / Object.keys(finalCategoryPercentages).length) : 0;
-    }
+      // Calculate overall percentage
+      const totalPercentage = totalMaxScore > 0 ? (totalScore / totalMaxScore) * 100 : 0;
+      
+      return {
+        categoryScores,
+        totalPercentage
+      };
+    };
+
+    const { categoryScores: finalCategoryPercentages, totalPercentage: finalTotalPercentage } = getCategoryScores();
 
     // Helper function to get score range (same as results page)
     const getScoreRange = (percentage, ranges) => {
