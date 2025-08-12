@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
 import nodemailer from 'nodemailer';
 
@@ -243,9 +243,12 @@ export default async function handler(req, res) {
     // Generate PDF report in memory
     console.log('Launching browser with Chromium...');
     
+    // Force Puppeteer to use Chromium package
+    const executablePath = await chromium.executablePath();
+    console.log('Using executable path:', executablePath);
+    
     const browser = await puppeteer.launch({
       args: [
-        ...chromium.args,
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
@@ -259,11 +262,20 @@ export default async function handler(req, res) {
         '--disable-javascript-harmony-promises',
         '--disable-wake-on-wifi',
         '--disable-features=site-per-process',
-        '--disable-ipc-flooding-protection'
+        '--disable-ipc-flooding-protection',
+        '--disable-background-timer-throttling',
+        '--disable-renderer-backgrounding',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-client-side-phishing-detection',
+        '--disable-crash-reporter',
+        '--disable-extensions-except=test',
+        '--disable-features=TranslateUI',
+        '--disable-ipc-flooding-protection',
+        '--enable-unsafe-swiftshader',
+        '--single-process'
       ],
-      defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
+      executablePath: executablePath,
+      headless: 'new',
       ignoreHTTPSErrors: true,
     });
     
