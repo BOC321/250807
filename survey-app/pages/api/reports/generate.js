@@ -233,8 +233,8 @@ export default async function handler(req, res) {
 
     console.log('Fetched answers:', answers);
     console.log('Fetched score ranges:', scoreRanges);
-    console.log('Final category scores (0-1 range):', finalCategoryScores);
-    console.log('Total percentage:', totalPercentage);
+    console.log('Final category percentages:', finalCategoryPercentages);
+    console.log('Final total percentage:', finalTotalPercentage);
 
     // Create a map of question_id to answer for easy lookup
     const answerMap = {};
@@ -286,8 +286,8 @@ export default async function handler(req, res) {
     const page = await browser.newPage();
     
     console.log('📊 Final values being used in PDF:');
-    console.log('📊 totalPercentage:', totalPercentage);
-    console.log('📊 finalCategoryScores:', finalCategoryScores);
+    console.log('📊 finalTotalPercentage:', finalTotalPercentage);
+    console.log('📊 finalCategoryPercentages:', finalCategoryPercentages);
     
     // Set up page content using the exact same logic as SurveyResults
     await page.setContent(`
