@@ -243,9 +243,8 @@ export default async function handler(req, res) {
       });
     });
     console.log('📊 Final Calculation Summary:');
-    console.log(`Total Raw Score: ${totalScore}`);
-    console.log(`Total Max Score: ${totalMaxScore}`);
-    console.log(`Calculated Percentage: ${finalTotalPercentage}%`);
+    console.log('Final category percentages:', finalCategoryPercentages);
+    console.log('Final total percentage:', finalTotalPercentage);
 
     // Helper function to get score range (same as results page)
     const getScoreRange = (percentage, ranges) => {
@@ -436,7 +435,7 @@ export default async function handler(req, res) {
     const serveUrl = `${req.headers.origin}/api/reports/serve?fileName=${encodeURIComponent(fileName)}`;
     console.log('Serve URL:', serveUrl);
 
-    // Update respondent record with report URL
+    // Update respondent record with report URL (removed report_generated_at)
     const { error: updateError } = await supabase
       .from('respondents')
       .update({ report_url: serveUrl })
