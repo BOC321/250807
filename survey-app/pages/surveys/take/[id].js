@@ -252,6 +252,8 @@ export default function TakeSurveyPage() {
             isValid = false;
             validationErrors[question.id] = 'This question is required';
             console.log('❌ Validation failed for question:', question.id, 'Type:', question.type, 'Response:', response);
+            console.log('❌ Question prompt:', question.prompt);
+            console.log('❌ Question choices:', question.choices);
           } else {
             console.log('✅ Validation passed for question:', question.id, 'Type:', question.type, 'Response:', response);
           }
@@ -262,7 +264,17 @@ export default function TakeSurveyPage() {
       console.log('Validation errors:', validationErrors);
       
       if (!isValid) {
-        setError('Please answer all required questions');
+        console.log('🚨 SUMMARY OF FAILED QUESTIONS:');
+        Object.keys(validationErrors).forEach(questionId => {
+          const question = flattenedQuestions.find(q => q.id === questionId);
+          if (question) {
+            console.log(`🚨 Question: "${question.prompt}" (ID: ${questionId})`);
+            console.log(`🚨 Type: ${question.type}, Required: ${question.required}`);
+            console.log(`🚨 Your response: ${responses[questionId]}`);
+          }
+        });
+        
+        setError('Please answer all required questions. Check console for details.');
         setSubmitting(false);
         return;
       }
