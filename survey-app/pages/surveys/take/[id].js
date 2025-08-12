@@ -165,54 +165,43 @@ export default function TakeSurveyPage() {
 
   // New functions for question-by-question flow
   const handleNext = () => {
-    console.log('handleNext called. Current index:', currentQuestionIndex, 'Total questions:', flattenedQuestions.length);
+    console.log('🔄 [handleNext] Starting navigation');
+    console.log('🔄 [handleNext] Current question index:', currentQuestionIndex);
+    console.log('🔄 [handleNext] Total flattened questions:', flattenedQuestions.length);
     
-    // Validate current question if required
+    // Validate current question before proceeding
     const currentQuestion = flattenedQuestions[currentQuestionIndex];
     const currentResponse = responses[currentQuestion.id];
+    const isCurrentValid = validateQuestion(currentQuestion, currentResponse);
     
-    console.log('Validating question:', currentQuestion.id, 'Type:', currentQuestion.type, 'Response:', currentResponse, 'Required:', currentQuestion.required);
+    console.log('🔄 [handleNext] Current question validation:', {
+      questionId: currentQuestion.id,
+      questionText: currentQuestion.text,
+      response: currentResponse,
+      isValid: isCurrentValid
+    });
     
-    // Check if the question is required and empty
-    if (currentQuestion.required) {
-      let isEmpty = false;
-      
-      if (currentQuestion.type === 'radio') {
-        // For radio buttons, check if no selection is made
-        isEmpty = !currentResponse || currentResponse === '' || currentResponse === null;
-      } else if (currentQuestion.type === 'checkbox') {
-        // For checkboxes, check if array is empty
-        isEmpty = !currentResponse || !Array.isArray(currentResponse) || currentResponse.length === 0;
-      } else {
-        // For text, textarea, etc.
-        isEmpty = !currentResponse || currentResponse === '';
-      }
-      
-      if (isEmpty) {
-        console.log('Validation failed for question:', currentQuestion.id);
-        setError('You must select an answer before clicking on Next');
-        
-        // Clear the error after 5 seconds
-        setTimeout(() => {
-          setError(null);
-        }, 5000);
-        
-        return;
-      }
+    if (!isCurrentValid) {
+      console.log('🔄 [handleNext] Current question validation failed, staying on question');
+      return;
     }
     
-    setError(null);
+    // Check if we should show the next question or submit
+    const shouldShowNext = currentQuestionIndex < flattenedQuestions.length - 1;
+    console.log('🔄 [handleNext] Navigation condition check:', {
+      currentIndex: currentQuestionIndex,
+      totalQuestions: flattenedQuestions.length,
+      condition: `${currentQuestionIndex} < ${flattenedQuestions.length} - 1`,
+      result: shouldShowNext,
+      explanation: shouldShowNext ? 'Show next question' : 'Submit survey'
+    });
     
-    console.log('About to navigate. Current index:', currentQuestionIndex, 'Total questions:', flattenedQuestions.length);
-    console.log('Condition check:', currentQuestionIndex, '<', flattenedQuestions.length - 1, '=', currentQuestionIndex < flattenedQuestions.length - 1);
-    console.log('Should advance to next question:', currentQuestionIndex < flattenedQuestions.length - 1);
-    
-    if (currentQuestionIndex < flattenedQuestions.length - 1) {
-      console.log('Advancing to next question from index', currentQuestionIndex, 'to', currentQuestionIndex + 1);
+    if (shouldShowNext) {
+      console.log('🔄 [handleNext] Advancing to next question:', currentQuestionIndex + 1);
       setCurrentQuestionIndex(currentQuestionIndex + 1);
     } else {
-      console.log('This should be the last question - showing submit button instead of next');
-      console.log('Current question should be the last one. Index:', currentQuestionIndex, 'Last index:', flattenedQuestions.length - 1);
+      console.log('🔄 [handleNext] No more questions, submitting survey');
+      handleSubmit();
     }
   };
 
