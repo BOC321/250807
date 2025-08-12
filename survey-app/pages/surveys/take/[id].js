@@ -562,8 +562,17 @@ export default function TakeSurveyPage() {
         console.log(`📊 Category ${categoryId}: ${rawScore}/${maxScore} = ${categoryScorePercentages[categoryId]}`);
       });
       
-      console.log('📊 Final category scores (percentages):', categoryScorePercentages);
-      setCategoryScores(categoryScorePercentages);
+      // Convert category ID keys to category titles for SurveyResults component
+      const categoryScorePercentagesWithTitles = {};
+      Object.keys(categoryScorePercentages).forEach(categoryId => {
+        const category = categories.find(c => c.id === categoryId);
+        if (category) {
+          categoryScorePercentagesWithTitles[category.title] = categoryScorePercentages[categoryId];
+        }
+      });
+      
+      console.log('📊 Final category scores (percentages with titles):', categoryScorePercentagesWithTitles);
+      setCategoryScores(categoryScorePercentagesWithTitles);
       setUserResponses(responses);
       
       // Redirect directly to thank you page without intermediate state
