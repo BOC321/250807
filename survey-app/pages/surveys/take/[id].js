@@ -203,14 +203,16 @@ export default function TakeSurveyPage() {
     
     setError(null);
     
-    console.log('About to navigate. Current index:', currentQuestionIndex, 'Total questions:', flattenedQuestions.length - 1);
+    console.log('About to navigate. Current index:', currentQuestionIndex, 'Total questions:', flattenedQuestions.length);
+    console.log('Condition check:', currentQuestionIndex, '<', flattenedQuestions.length - 1, '=', currentQuestionIndex < flattenedQuestions.length - 1);
     console.log('Should advance to next question:', currentQuestionIndex < flattenedQuestions.length - 1);
     
     if (currentQuestionIndex < flattenedQuestions.length - 1) {
-      console.log('Advancing to next question');
+      console.log('Advancing to next question from index', currentQuestionIndex, 'to', currentQuestionIndex + 1);
       setCurrentQuestionIndex(currentQuestionIndex + 1);
     } else {
       console.log('This should be the last question - showing submit button instead of next');
+      console.log('Current question should be the last one. Index:', currentQuestionIndex, 'Last index:', flattenedQuestions.length - 1);
     }
   };
 
