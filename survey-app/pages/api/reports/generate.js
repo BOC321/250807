@@ -296,19 +296,18 @@ export default async function handler(req, res) {
       <p><strong>Respondent Name:</strong> ${respondent.name || 'Anonymous'}</p>
       <p><strong>Generated on:</strong> ${new Date().toLocaleDateString()}</p>
       <h2>Total Score</h2>
-      <p>Score: ${Math.round(totalPercentage)}%</p>
-      ${Object.keys(finalCategoryScores).length > 0 ? `
+      <p>Score: ${Math.round(finalTotalPercentage)}%</p>
+      ${Object.keys(finalCategoryPercentages).length > 0 ? `
         <h2>Category Scores</h2>
-        ${Object.entries(finalCategoryScores).map(([category, score]) => {
+        ${Object.entries(finalCategoryPercentages).map(([category, percentage]) => {
           const categoryId = survey.categories.find(c => c.title === category)?.id;
           const ranges = scoreRanges.categories[categoryId] || [];
-          const range = getScoreRange(score, ranges);
-          const percentage = Math.round(score * 100); // Same logic as SurveyResults
+          const range = getScoreRange(percentage, ranges);
           
-          console.log(`📊 PDF Category ${category}: score=${score}, percentage=${percentage}%`);
+          console.log(`📊 PDF Category ${category}: percentage=${Math.round(percentage)}%`);
           
           return `
-            <p><strong>${category}:</strong> ${percentage}%</p>
+            <p><strong>${category}:</strong> ${Math.round(percentage)}%</p>
             ${range ? `<p>Interpretation: ${range.description}</p>` : ''}
           `;
         }).join('')}
