@@ -191,8 +191,6 @@ export default async function handler(req, res) {
     
     const getCategoryScores = () => {
       const categoryScores = {};
-      let totalScore = 0;
-      let totalMaxScore = 0;
       
       survey.categories.forEach(category => {
         const categoryQuestions = category.questions.map(q => q.id);
@@ -218,15 +216,11 @@ export default async function handler(req, res) {
         // Calculate percentage using the correct formula
         const categoryPercentage = categoryMaxScore > 0 ? (categoryScore / categoryMaxScore) * 100 : 0;
         categoryScores[category.title] = categoryPercentage;
-        
-        // Accumulate totals
-        totalScore += categoryScore;
-        totalMaxScore += categoryMaxScore;
       });
       
-      // Calculate overall percentage with proper decimal handling
-      const totalPercentage = totalMaxScore > 0 ? 
-        Number(((totalScore / totalMaxScore) * 100).toFixed(2)) : 0;
+      // Calculate total percentage as average of category percentages (matches screen logic)
+      const totalPercentage = Object.values(categoryScores).length > 0 ? 
+        Number((Object.values(categoryScores).reduce((sum, score) => sum + score, 0) / Object.keys(categoryScores).length).toFixed(2)) : 0;
       
       return {
         categoryScores,
@@ -442,27 +436,10 @@ export default async function handler(req, res) {
     const serveUrl = `${req.headers.origin}/api/reports/serve?fileName=${encodeURIComponent(fileName)}`;
     console.log('Serve URL:', serveUrl);
 
-    // Update respondent record (gracefully handle missing columns)
-    const updateData = { report_url: serveUrl };
-    
-    try {
-      // Check if report_generated_at column exists
-      const { data: columnExists } = await supabase
-        .rpc('column_exists', { 
-          table_name: 'respondents', 
-          column_name: 'report_generated_at' 
-        });
-      
-      if (columnExists) {
-        updateData.report_generated_at = new Date().toISOString();
-      }
-    } catch (err) {
-      console.log('Column check failed, proceeding without report_generated_at');
-    }
-
+    // Update respondent record with report URL
     const { error: updateError } = await supabase
       .from('respondents')
-      .update(updateData)
+      .update({ report_url: serveUrl })
       .eq('id', respondentId);
 
     if (updateError) {
