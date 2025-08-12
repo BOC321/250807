@@ -152,6 +152,8 @@ export default function TakeSurveyPage() {
         }
       });
       console.log('Initial responses:', initialResponses);
+      console.log('Total questions loaded:', allQuestions.length);
+      console.log('Last question details:', allQuestions[allQuestions.length - 1]);
       setResponses(initialResponses);
     } catch (err) {
       console.error('Error in fetchSurveyData:', err);
@@ -202,12 +204,13 @@ export default function TakeSurveyPage() {
     setError(null);
     
     console.log('About to navigate. Current index:', currentQuestionIndex, 'Total questions:', flattenedQuestions.length - 1);
+    console.log('Should advance to next question:', currentQuestionIndex < flattenedQuestions.length - 1);
     
     if (currentQuestionIndex < flattenedQuestions.length - 1) {
       console.log('Advancing to next question');
       setCurrentQuestionIndex(currentQuestionIndex + 1);
     } else {
-      console.log('Already at last question, should show submit button');
+      console.log('This should be the last question - showing submit button instead of next');
     }
   };
 
@@ -643,6 +646,11 @@ export default function TakeSurveyPage() {
         <strong>Debug:</strong> Question {currentQuestionIndex + 1} of {flattenedQuestions.length} | 
         Current Question ID: {currentQuestion?.id} | 
         Prompt: "{currentQuestion?.prompt}"
+        <br />
+        <strong>Current Index:</strong> {currentQuestionIndex} | 
+        <strong>Array Length:</strong> {flattenedQuestions.length} | 
+        <strong>Last Index:</strong> {flattenedQuestions.length - 1} |
+        <strong>Is Last Question:</strong> {currentQuestionIndex === flattenedQuestions.length - 1 ? 'YES' : 'NO'}
       </div>
       
       {surveyCompleted ? (
