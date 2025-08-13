@@ -3,7 +3,7 @@ const { v4: uuidv4 } = require('uuid');
 const puppeteer = require('puppeteer-core');
 const chromium = require('@sparticuz/chromium');
 const nodemailer = require('nodemailer');
-const { computeScores, pickRange } = require('@/lib/scoring');
+const { computeScores, pickRange } = require('../../../src/lib/scoring');
 
 // Debug: Log all environment variables
 console.log('Environment variables debug:');
@@ -90,11 +90,35 @@ class EmailService {
 const emailService = new EmailService();
 
 module.exports = async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
   }
 
+  // Validate content type
+  if (req.headers['content-type'] !== 'application/json') {
+    return res.status(415).json({
+      error: 'Unsupported Media Type',
+      required: 'application/json'
+    });
+  }
+
+  // Validate HTTP method
+  if (req.method !== 'POST') {
+    return res.status(405).json({ 
+      error: 'Method not allowed',
+      allowedMethods: ['POST'] 
+    });
+  }
+
+  // Validate required fields
   const { surveyId, respondentId, email } = req.body;
+  if (!surveyId || !respondentId || !email) {
+    return res.status(400).json({
+      error: 'Missing required fields',
+      requiredFields: ['surveyId', 'respondentId', 'email']
+    });
+  }
 
   try {
     console.log('🚀 Starting report generation for survey:', surveyId);
