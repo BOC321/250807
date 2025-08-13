@@ -3,6 +3,7 @@ const { v4: uuidv4 } = require('uuid');
 const puppeteer = require('puppeteer-core');
 const chromium = require('@sparticuz/chromium');
 const nodemailer = require('nodemailer');
+const { computeScores, pickRange } = require('@/lib/scoring');
 
 // Debug: Log all environment variables
 console.log('Environment variables debug:');
@@ -26,8 +27,13 @@ chromium.executablePath().then(path => {
 });
 
 // Initialize Supabase client with error handling
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://mock-url.supabase.co';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'mock-key-1234567890';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('Missing Supabase URL or key');
+  throw new Error('Missing Supabase URL or key');
+}
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -108,13 +114,11 @@ module.exports = async function handler(req, res) {
     // Fetch survey and respondent data
     const { data: survey, error: surveyError } = await supabase
       .from('surveys')
-      .select('*, categories(*, questions(*))')
+      .select('*')
       .eq('id', surveyId)
       .single();
 
-    if (surveyError) {
-      throw surveyError;
-    }
+    if (surveyError) throw surveyError;
 
     const { data: respondent, error: respondentError } = await supabase
       .from('respondents')
@@ -122,24 +126,43 @@ module.exports = async function handler(req, res) {
       .eq('id', respondentId)
       .single();
 
-    if (respondentError) {
-      throw respondentError;
-    }
+    if (respondentError) throw respondentError;
 
-    // Fetch user's answers for this respondent
+    // Fetch user's answers
     const { data: answers, error: answersError } = await supabase
       .from('answers')
       .select('*')
       .eq('respondent_id', respondentId);
 
-    if (answersError) {
-      throw answersError;
-    }
+    if (answersError) throw answersError;
 
-    // Fetch score ranges using the same logic as the results page
+    // Fetch categories with questions and options
+    console.log('Fetching categories with questions and options');
+    const { data: categories, error: categoriesError } = await supabase
+      .from('categories')
+      .select(`
+        id, 
+        title, 
+        weight,
+        questions (
+          id, 
+          prompt, 
+          weight,
+          scorable,
+          meta,
+          question_options ( score, label )
+        )
+      `)
+      .eq('survey_id', surveyId)
+      .order('order', { ascending: true });
+
+    if (categoriesError) throw categoriesError;
+    console.log('Categories fetched successfully');
+
+    // Fetch score ranges (0-100 scale)
+    console.log('Fetching score ranges');
     const fetchScoreRanges = async (surveyId) => {
       try {
-        // Fetch category score ranges
         const { data: categoryRanges, error: categoryError } = await supabase
           .from('score_ranges')
           .select('*')
@@ -148,7 +171,6 @@ module.exports = async function handler(req, res) {
         
         if (categoryError) throw categoryError;
         
-        // Fetch total score ranges
         const { data: totalRanges, error: totalError } = await supabase
           .from('score_ranges')
           .select('*')
@@ -157,7 +179,6 @@ module.exports = async function handler(req, res) {
         
         if (totalError) throw totalError;
         
-        // Organize ranges by category ID
         const rangesByCategory = {};
         categoryRanges.forEach(range => {
           if (!rangesByCategory[range.category_id]) {
@@ -172,166 +193,54 @@ module.exports = async function handler(req, res) {
         };
       } catch (err) {
         console.error('Error fetching score ranges:', err);
-        return {
-          categories: {},
-          total: []
-        };
+        return { categories: {}, total: [] };
       }
     };
 
     const scoreRanges = await fetchScoreRanges(surveyId);
+    console.log('Score ranges fetched');
 
-    // Always calculate scores directly from database answers
-    console.log('📊 Calculating scores directly from database answers');
+    // Calculate normalized scores
+    console.log('Calculating normalized scores');
+    const answerObjects = answers.map(a => ({
+      question_id: a.question_id,
+      score: a.score
+    }));
     
-// Extracted scoring function for testability
-function getCategoryScores(survey, answers) {
-      const categoryScores = {};
-      
-      survey.categories.forEach(category => {
-        const categoryQuestions = category.questions.map(q => q.id);
-        const categoryAnswers = answers.filter(answer => 
-          categoryQuestions.includes(answer.question_id) && answer.score !== null
-        );
-        
-        // Calculate actual score for the category
-        let categoryScore = 0;
-        let categoryMaxScore = 0;
-        
-        category.questions.forEach(question => {
-          const answer = answers.find(a => a.question_id === question.id);
-          const maxScore = Number(question.max_score) || 1;
-          const answerScore = Number(answer?.score) || 0;
-          
-          console.log(`📊 ${question.prompt}: ${answerScore}/${maxScore}`);
-          
-          categoryScore += answerScore;
-          categoryMaxScore += maxScore;
-        });
-        
-        // Calculate percentage using the correct formula
-        const categoryPercentage = categoryMaxScore > 0 ? (categoryScore / categoryMaxScore) * 100 : 0;
-        categoryScores[category.title] = categoryPercentage;
-      });
-      
-      // Calculate total percentage as average of category percentages (matches screen logic)
-      const totalPercentage = Object.values(categoryScores).length > 0 ? 
-        Number((Object.values(categoryScores).reduce((sum, score) => sum + score, 0) / Object.keys(categoryScores).length).toFixed(2)) : 0;
-      
-      return {
-        categoryScores,
-        totalPercentage
-      };
-    };
+    const { categoryPercents, totalPercent } = computeScores(
+      categories,
+      answerObjects,
+      { 
+        treatMissingAsZero: true,
+        useQuestionWeights: true,
+        useCategoryWeights: false 
+      }
+    );
+    console.log('Scores calculated:', { categoryPercents, totalPercent });
 
-    const { categoryScores: finalCategoryPercentages, totalPercentage: finalTotalPercentage } = getCategoryScores(survey, answers);
-    
-    // Debug: Verify calculated scores
-    console.log('DEBUG - Calculated Scores:', {
-      finalCategoryPercentages,
-      finalTotalPercentage,
-      answers: answers.map(a => ({ question_id: a.question_id, score: a.score }))
-    });
-    
-    // Debug: Log detailed score calculation
-    console.log('📊 Detailed Score Breakdown:');
-    survey.categories.forEach(category => {
-      console.log(`\nCategory: ${category.title}`);
-      category.questions.forEach(question => {
-        const answer = answers.find(a => a.question_id === question.id);
-        const maxScore = question.max_score || 1;
-        console.log(`- Question: ${question.prompt || question.text}`);
-        console.log(`  Answer ID: ${answer?.id || 'none'}`);
-        console.log(`  Answer Score: ${answer?.score || 0}/${maxScore}`);
-      });
-    });
-    console.log('📊 Final Calculation Summary:');
-    console.log('Final category percentages:', finalCategoryPercentages);
-    console.log('Final total percentage:', finalTotalPercentage);
-
-    // Helper function to get score range (same as results page)
-    const getScoreRange = (percentage, ranges) => {
-      return ranges.find(range => percentage >= range.min_score && percentage <= range.max_score);
-    };
-
-    // Deep verification of answer scores
-    console.log('🔍 Answer Score Verification:');
-    answers.forEach(answer => {
-      console.log(`- Question ${answer.question_id}: ${answer.score || 0} points`);
-    });
-    
-    // Verify survey question max scores
-    console.log('🔍 Survey Max Scores Verification:');
-    survey.categories.forEach(category => {
-      category.questions.forEach(question => {
-        console.log(`- ${question.prompt}: max ${question.max_score}`);
-      });
-    });
-    
-    // Recalculate total from first principles
-    const manualTotal = answers.reduce((sum, a) => sum + (a.score || 0), 0);
-    const manualMax = survey.categories.reduce((sum, c) => 
-      sum + c.questions.reduce((catSum, q) => catSum + (q.max_score || 1), 0), 0);
-    console.log(`🔍 Manual Recalculation: ${manualTotal}/${manualMax} = ${(manualTotal/manualMax*100).toFixed(2)}%`);
-    console.log('Fetched score ranges:', scoreRanges);
-    console.log('Final category percentages:', finalCategoryPercentages);
-    console.log('Final total percentage:', finalTotalPercentage);
-
-    // Create a map of question_id to answer for easy lookup
+    // Create answer map for responses
     const answerMap = {};
     answers.forEach(answer => {
       answerMap[answer.question_id] = answer.value;
     });
 
-    // Generate PDF report in memory
+    // Generate PDF report
     console.log('Launching browser with Chromium...');
-    
-    // Force Puppeteer to use Chromium package
     const executablePath = await chromium.executablePath();
     console.log('Using executable path:', executablePath);
     
     const browser = await puppeteer.launch({
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--disable-gpu',
-        '--disable-extensions',
-        '--disable-plugins',
-        '--disable-images',
-        '--disable-javascript-harmony-promises',
-        '--disable-wake-on-wifi',
-        '--disable-features=site-per-process',
-        '--disable-ipc-flooding-protection',
-        '--disable-background-timer-throttling',
-        '--disable-renderer-backgrounding',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-client-side-phishing-detection',
-        '--disable-crash-reporter',
-        '--disable-extensions-except=test',
-        '--disable-features=TranslateUI',
-        '--disable-ipc-flooding-protection',
-        '--enable-unsafe-swiftshader',
-        '--single-process'
-      ],
+      args: chromium.args,
       executablePath: executablePath,
       headless: 'new',
       ignoreHTTPSErrors: true,
     });
     
     console.log('Browser launched successfully');
-    
     const page = await browser.newPage();
     
-    console.log('📊 Final values being used in PDF:');
-    console.log('📊 finalTotalPercentage:', finalTotalPercentage);
-    console.log('📊 finalCategoryPercentages:', finalCategoryPercentages);
-    
-    // Set up page content using the exact same logic as SurveyResults
-    await page.setContent(`
+    // Generate HTML content
+    const htmlContent = `
       <!DOCTYPE html>
       <html>
       <head>
@@ -350,18 +259,18 @@ function getCategoryScores(survey, answers) {
         <p><strong>Generated on:</strong> ${new Date().toLocaleDateString()}</p>
         
         <h2>Total Score</h2>
-        <p>Score: ${Math.round(finalTotalPercentage)}%</p>
+        <p>Score: ${totalPercent.toFixed(2)}%</p>
         
-        ${Object.keys(finalCategoryPercentages).length > 0 ? `
+        ${Object.keys(categoryPercents).length > 0 ? `
           <h2>Category Scores</h2>
-          ${Object.entries(finalCategoryPercentages).map(([category, percentage]) => {
-            const categoryId = survey.categories.find(c => c.title === category)?.id;
+          ${Object.entries(categoryPercents).map(([category, percentage]) => {
+            const categoryId = categories.find(c => c.title === category)?.id;
             const ranges = scoreRanges.categories[categoryId] || [];
-            const range = getScoreRange(percentage, ranges);
+            const range = pickRange(percentage, ranges);
             
             return `
               <div>
-                <p><strong>${category}:</strong> ${Math.round(percentage)}%</p>
+                <p><strong>${category}:</strong> ${percentage.toFixed(2)}%</p>
                 ${range ? `<div class="score-range" style="border-color: ${range.color};">${range.description}</div>` : ''}
               </div>
             `;
@@ -369,10 +278,10 @@ function getCategoryScores(survey, answers) {
         ` : ''}
         
         <h2>Detailed Responses</h2>
-        ${survey.categories ? survey.categories.map(category => `
+        ${categories.map(category => `
           <div class="response-item">
             <h3>${category.title}</h3>
-            ${category.questions ? category.questions.map(question => {
+            ${category.questions.map(question => {
               const userAnswer = answerMap[question.id];
               let answerText = 'Not answered';
               
@@ -380,10 +289,7 @@ function getCategoryScores(survey, answers) {
                 if (typeof userAnswer === 'string') {
                   answerText = userAnswer;
                 } else if (typeof userAnswer === 'object') {
-                  if (userAnswer.answer) answerText = userAnswer.answer;
-                  else if (userAnswer.value) answerText = userAnswer.value;
-                  else if (Array.isArray(userAnswer)) answerText = userAnswer.join(', ');
-                  else answerText = JSON.stringify(userAnswer);
+                  answerText = JSON.stringify(userAnswer);
                 } else {
                   answerText = String(userAnswer);
                 }
@@ -391,90 +297,59 @@ function getCategoryScores(survey, answers) {
               
               return `
                 <div>
-                  <p><strong>Question:</strong> ${question.prompt || question.text}</p>
+                  <p><strong>Question:</strong> ${question.prompt}</p>
                   <p><strong>Answer:</strong> ${answerText}</p>
                 </div>
               `;
-            }).join('') : ''}
+            }).join('')}
           </div>
-        `).join('') : ''}
+        `).join('')}
       </body>
       </html>
-    `);
+    `;
 
-    // Generate PDF from page
-    const pdfBuffer = await page.pdf({ 
-      format: 'A4', 
-      printBackground: true 
-    });
-
+    await page.setContent(htmlContent);
+    const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
     await browser.close();
 
-    // Upload PDF to Supabase storage
-    console.log('Uploading PDF to Supabase storage...');
+    // Upload PDF to storage
     const fileName = `report-${uuidv4()}.pdf`;
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('survey-reports')
-      .upload(fileName, pdfBuffer, {
-        contentType: 'application/pdf',
-        upsert: false
-      });
+      .upload(fileName, pdfBuffer, { contentType: 'application/pdf' });
 
-    if (uploadError) {
-      console.error('❌ PDF Upload Error Details:', {
-        message: uploadError.message,
-        status: uploadError.statusCode,
-        details: uploadError.details
-      });
-      throw uploadError;
-    }
+    if (uploadError) throw uploadError;
 
-    console.log('PDF uploaded successfully:', uploadData);
-    
-    // DEBUG: Log all answers with scores
-    console.log('🧮 FINAL SCORE VERIFICATION:');
-    answers.forEach(a => {
-      console.log(`- Q${a.question_id}: ${a.score || 0} points`);
-    });
-    console.log('🧮 TOTAL RAW SCORE:', answers.reduce((sum, a) => sum + (a.score || 0), 0));
-
-    // Generate a direct link to our serve-report API
+    // Generate serve URL
     const serveUrl = `${req.headers.origin}/api/reports/serve?fileName=${encodeURIComponent(fileName)}`;
-    console.log('Serve URL:', serveUrl);
 
-    // Update respondent record with report URL (removed report_generated_at)
+    // Update respondent record
     const { error: updateError } = await supabase
       .from('respondents')
       .update({ report_url: serveUrl })
       .eq('id', respondentId);
 
-    if (updateError) {
-      console.error('Error updating respondent:', updateError);
-    }
+    if (updateError) console.error('Error updating respondent:', updateError);
 
-    // Send email with report link using real email service
+    // Send email notification
     await emailService.sendEmail({
       to: email,
       subject: 'Your Survey Report',
-      text: `Hello, here is the link to your survey report: ${serveUrl}`,
       html: `
         <p>Hello,</p>
-        <p>Thank you for completing the survey: <strong>${survey.title}</strong></p>
-        <p>Your detailed report is ready. You can access it using the link below:</p>
-        <p><a href="${serveUrl}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">View Your Report</a></p>
-        <p>Alternatively, you can copy and paste this URL into your browser:</p>
-        <p>${serveUrl}</p>
-        <p>Thank you for your participation!</p>
-      `,
+        <p>Your report for <strong>${survey.title}</strong> is ready:</p>
+        <p><a href="${serveUrl}">View Report</a></p>
+        <p>Thank you for participating!</p>
+      `
     });
 
     return res.status(200).json({ 
-      message: 'Report generated and email sent successfully', 
+      message: 'Report generated successfully', 
       serveUrl,
       fileName
     });
   } catch (error) {
     console.error('Error generating report:', error);
-    return res.status(500).json({ error: 'Error generating report', details: error.message });
+    return res.status(500).json({ error: error.message });
   }
-}
+};

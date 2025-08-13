@@ -1,24 +1,36 @@
 import React from 'react';
-import { getScoreRange } from '../../utils/scoreUtils';
+import { computeScores, pickRange } from '@/lib/scoring';
 import { SurveyResultsProps } from '../../types/ui';
 
-const SurveyResults = ({ survey, categoryScores, userResponses, scoreRanges }: SurveyResultsProps) => {
+const SurveyResults = ({ survey, userResponses, scoreRanges }) => {
+  // Format answers for scoring module
+  const answerObjects = Object.values(userResponses).map(r => ({
+    question_id: r.questionId,
+    score: r.score
+  }));
+
+  // Calculate scores using normalized method
+  const { categoryPercents, totalPercent } = computeScores(
+    survey.categories,
+    answerObjects,
+    { treatMissingAsZero: true }
+  );
+
   return (
     <div className="survey-results">
       <h1>Your Survey Report: {survey.title}</h1>
       <p>Generated on: {new Date().toLocaleDateString()}</p>
       
       <h2>Category Scores</h2>
-      {Object.entries(categoryScores).map(([category, score]) => {
+      {Object.entries(categoryPercents).map(([category, percentage]) => {
         const categoryId = survey.categories?.find(c => c.title === category)?.id;
         const ranges = scoreRanges.categories[categoryId] || [];
-        const range = getScoreRange(score, ranges);
-        const percentage = Math.round(score * 100);
+        const range = pickRange(percentage, ranges);
         
         return (
           <div key={category}>
             <div className="category-score">
-              <strong>{category}:</strong> {percentage}%
+              <strong>{category}:</strong> {percentage.toFixed(2)}%
             </div>
             {range && (
               <div 
@@ -38,15 +50,11 @@ const SurveyResults = ({ survey, categoryScores, userResponses, scoreRanges }: S
         );
       })}
       
-      {Object.keys(categoryScores).length > 0 && (
+      {Object.keys(categoryPercents).length > 0 && (
         <div className="total-score" style={{ fontWeight: 'bold', marginTop: '15px', fontSize: '1.2em' }}>
-          <strong>
-            Total Score: {Math.round((Object.values(categoryScores).reduce((sum, score) => sum + score, 0) / Object.keys(categoryScores).length) * 100)}%
-          </strong>
+          <strong>Total Score: {totalPercent.toFixed(2)}%</strong>
           {(() => {
-            const totalScore = Object.values(categoryScores).reduce((sum, score) => sum + score, 0) / Object.keys(categoryScores).length;
-            const totalRange = getScoreRange(totalScore, scoreRanges.total);
-            
+            const totalRange = pickRange(totalPercent, scoreRanges.total || []);
             return totalRange ? (
               <div 
                 className="score-range" 
