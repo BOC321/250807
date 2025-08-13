@@ -224,7 +224,14 @@ function getCategoryScores(survey, answers) {
       };
     };
 
-    const { categoryScores: finalCategoryPercentages, totalPercentage: finalTotalPercentage } = getCategoryScores();
+    const { categoryScores: finalCategoryPercentages, totalPercentage: finalTotalPercentage } = getCategoryScores(survey, answers);
+    
+    // Debug: Verify calculated scores
+    console.log('DEBUG - Calculated Scores:', {
+      finalCategoryPercentages,
+      finalTotalPercentage,
+      answers: answers.map(a => ({ question_id: a.question_id, score: a.score }))
+    });
     
     // Debug: Log detailed score calculation
     console.log('📊 Detailed Score Breakdown:');
