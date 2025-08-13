@@ -421,7 +421,11 @@ function getCategoryScores(survey, answers) {
       });
 
     if (uploadError) {
-      console.error('Error uploading PDF:', uploadError);
+      console.error('❌ PDF Upload Error Details:', {
+        message: uploadError.message,
+        status: uploadError.statusCode,
+        details: uploadError.details
+      });
       throw uploadError;
     }
 
