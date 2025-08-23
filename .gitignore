@@ -1,0 +1,32 @@
+﻿# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Next.js
+.next/
+out/
+*.tsbuildinfo
+
+# Vercel (CLI metadata & build output)
+.vercel/
+
+# Env files (keep only the example in git)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+!.env.example
+
+# Tests & coverage
+coverage/
+
+# Editor/OS junk
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log

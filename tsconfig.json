@@ -1,0 +1,46 @@
+{
+  "compilerOptions": {
+    // Platform & module
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "preserve",
+
+    // Path alias
+    "baseUrl": ".",
+    "paths": { "@/*": ["src/*"] },
+
+    // Build behavior
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "incremental": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+
+    // Strictness (stronger checks to catch bugs early)
+    "strict": true,
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "useUnknownInCatchVariables": true,
+    "forceConsistentCasingInFileNames": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+
+    // Required by Next.js (keep these)
+    "esModuleInterop": true,
+    "isolatedModules": true
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": ["node_modules"]
+}
