@@ -284,21 +284,63 @@ export default function Dashboard() {
                   https://answer-trap-survey.vercel.app/surveys/take/{survey.id}
                 </code>
                 <button
-                  onClick={() => {
+                  onClick={(event) => {
                     const url = `https://answer-trap-survey.vercel.app/surveys/take/${survey.id}`;
-                    navigator.clipboard.writeText(url).then(() => {
-                      // Simple feedback - you could enhance this with a toast notification
-                      const btn = event.target;
-                      const originalText = btn.textContent;
-                      btn.textContent = 'Copied!';
-                      btn.style.backgroundColor = '#28a745';
-                      setTimeout(() => {
-                        btn.textContent = originalText;
-                        btn.style.backgroundColor = '#6c757d';
-                      }, 1500);
-                    }).catch(() => {
-                      alert('Failed to copy URL');
-                    });
+                    
+                    // Try modern clipboard API first
+                    if (navigator.clipboard && window.isSecureContext) {
+                      navigator.clipboard.writeText(url).then(() => {
+                        // Success feedback
+                        const btn = event.target;
+                        const originalText = btn.textContent;
+                        btn.textContent = 'Copied!';
+                        btn.style.backgroundColor = '#28a745';
+                        setTimeout(() => {
+                          btn.textContent = originalText;
+                          btn.style.backgroundColor = '#6c757d';
+                        }, 1500);
+                      }).catch(() => {
+                        // Fallback to legacy method
+                        fallbackCopyTextToClipboard(url, event.target);
+                      });
+                    } else {
+                      // Fallback for browsers without clipboard API
+                      fallbackCopyTextToClipboard(url, event.target);
+                    }
+                    
+                    function fallbackCopyTextToClipboard(text, buttonElement) {
+                      const textArea = document.createElement('textarea');
+                      textArea.value = text;
+                      textArea.style.position = 'fixed';
+                      textArea.style.left = '-999999px';
+                      textArea.style.top = '-999999px';
+                      document.body.appendChild(textArea);
+                      textArea.focus();
+                      textArea.select();
+                      
+                      try {
+                        const successful = document.execCommand('copy');
+                        document.body.removeChild(textArea);
+                        
+                        if (successful) {
+                          // Success feedback
+                          const originalText = buttonElement.textContent;
+                          buttonElement.textContent = 'Copied!';
+                          buttonElement.style.backgroundColor = '#28a745';
+                          setTimeout(() => {
+                            buttonElement.textContent = originalText;
+                            buttonElement.style.backgroundColor = '#6c757d';
+                          }, 1500);
+                        } else {
+                          // Show the URL in a prompt as last resort
+                          prompt('Copy this URL:', text);
+                        }
+                      } catch (err) {
+                        document.body.removeChild(textArea);
+                        // Show the URL in a prompt as last resort
+                        prompt('Copy this URL:', text);
+                      }
+                    }
                   }}
                   style={{
                     padding: '0.25rem 0.5rem',
