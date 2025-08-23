@@ -1,15 +1,7 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/next"
+  "functions": {
+    "pages/api/reports/generate.ts": {
+      "maxDuration": 30
     }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
-    }
-  ]
+  }
 }
