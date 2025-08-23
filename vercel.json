@@ -1,7 +1,1 @@
-{
-  "functions": {
-    "api/reports/generate.ts": {
-      "maxDuration": 30
-    }
-  }
-}
+{}
