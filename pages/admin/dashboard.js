@@ -232,6 +232,25 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* URL Reference Section */}
+      <div style={{ 
+        backgroundColor: '#e3f2fd', 
+        padding: '1rem', 
+        borderRadius: '6px', 
+        marginBottom: '2rem',
+        border: '1px solid #bbdefb'
+      }}>
+        <h3 style={{ margin: '0 0 0.75rem 0', color: '#1565c0', fontSize: '16px' }}>🔗 Survey URL Patterns for Embedding</h3>
+        <div style={{ display: 'grid', gap: '0.5rem', fontSize: '13px' }}>
+          <div><strong>Take Survey:</strong> <code>https://answer-trap-survey.vercel.app/surveys/take/[SURVEY_ID]</code></div>
+          <div><strong>View Results:</strong> <code>https://answer-trap-survey.vercel.app/surveys/results/[SURVEY_ID]</code></div>
+          <div><strong>Public Survey List:</strong> <code>https://answer-trap-survey.vercel.app/surveys</code></div>
+        </div>
+        <div style={{ fontSize: '12px', color: '#666', marginTop: '0.5rem' }}>
+          💡 Individual survey URLs are shown below each survey with a copy button.
+        </div>
+      </div>
+
       {/* Surveys grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
         {surveys.map(survey => (
@@ -239,6 +258,62 @@ export default function Dashboard() {
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'baseline' }}>
               <div style={{ fontWeight: 600 }}>{survey.title || 'Untitled survey'}</div>
               <div style={{ fontSize: 12, color: '#6b7280' }}>{fmtDate(survey.created_at)}</div>
+            </div>
+
+            {/* Survey URL for embedding */}
+            <div style={{ 
+              backgroundColor: '#f8f9fa', 
+              padding: '0.75rem', 
+              borderRadius: '4px', 
+              marginBottom: '0.75rem',
+              border: '1px solid #e9ecef'
+            }}>
+              <div style={{ fontSize: '12px', fontWeight: '600', color: '#495057', marginBottom: '0.25rem' }}>Survey URL for embedding:</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <code style={{ 
+                  fontSize: '11px', 
+                  backgroundColor: '#ffffff', 
+                  padding: '0.25rem 0.5rem', 
+                  borderRadius: '3px',
+                  border: '1px solid #dee2e6',
+                  flex: 1,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}>
+                  https://answer-trap-survey.vercel.app/surveys/take/{survey.id}
+                </code>
+                <button
+                  onClick={() => {
+                    const url = `https://answer-trap-survey.vercel.app/surveys/take/${survey.id}`;
+                    navigator.clipboard.writeText(url).then(() => {
+                      // Simple feedback - you could enhance this with a toast notification
+                      const btn = event.target;
+                      const originalText = btn.textContent;
+                      btn.textContent = 'Copied!';
+                      btn.style.backgroundColor = '#28a745';
+                      setTimeout(() => {
+                        btn.textContent = originalText;
+                        btn.style.backgroundColor = '#6c757d';
+                      }, 1500);
+                    }).catch(() => {
+                      alert('Failed to copy URL');
+                    });
+                  }}
+                  style={{
+                    padding: '0.25rem 0.5rem',
+                    fontSize: '10px',
+                    backgroundColor: '#6c757d',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '3px',
+                    cursor: 'pointer'
+                  }}
+                  title="Copy survey URL to clipboard"
+                >
+                  Copy
+                </button>
+              </div>
             </div>
 
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
