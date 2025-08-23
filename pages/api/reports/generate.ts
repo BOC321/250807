@@ -12,15 +12,46 @@ import chromium from '@sparticuz/chromium';
 // -----------------------------
 
 function getBaseUrl(req: NextApiRequest): string {
+  // Priority 1: Check request headers for origin
   const hdr = req.headers?.origin?.toString().replace(/\/$/, '');
-  if (hdr) return hdr;
+  if (hdr && hdr !== 'null') {
+    console.log('[getBaseUrl] Using request origin:', hdr);
+    return hdr;
+  }
 
+  // Priority 2: Check request headers for host (construct full URL)
+  const host = req.headers?.host?.toString();
+  if (host && host !== 'localhost:3000') {
+    const protocol = req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+    const baseFromHost = `${protocol}://${host}`;
+    console.log('[getBaseUrl] Using host header:', baseFromHost);
+    return baseFromHost;
+  }
+
+  // Priority 3: Use NEXT_PUBLIC_SITE_URL environment variable
   const fromEnv = (process.env['NEXT_PUBLIC_SITE_URL'] || '').replace(/\/$/, '');
-  if (fromEnv) return fromEnv;
+  if (fromEnv) {
+    console.log('[getBaseUrl] Using NEXT_PUBLIC_SITE_URL:', fromEnv);
+    return fromEnv;
+  }
 
+  // Priority 4: Use Vercel URL for production
   const fromVercel = process.env['VERCEL_URL'] ? `https://${process.env['VERCEL_URL']}` : '';
-  if (fromVercel) return fromVercel;
+  if (fromVercel) {
+    console.log('[getBaseUrl] Using VERCEL_URL:', fromVercel);
+    return fromVercel;
+  }
 
+  // Priority 5: Check if we're in Vercel production environment
+  if (process.env['VERCEL'] === '1' && process.env['VERCEL_ENV'] === 'production') {
+    // Last resort: use the configured site URL from env
+    const prodUrl = 'https://answer-trap-survey.vercel.app';
+    console.log('[getBaseUrl] Using fallback production URL:', prodUrl);
+    return prodUrl;
+  }
+
+  // Fallback: localhost for development
+  console.log('[getBaseUrl] Falling back to localhost:3000');
   return 'http://localhost:3000';
 }
 
@@ -113,16 +144,62 @@ function pickRange(
 // -----------------------------
 // Supabase (server-side)
 // -----------------------------
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
+const supabaseUrl = process.env['NEXT_PUBLIC_SUPABASE_URL'] as string;
 const supabaseKey =
-  (process.env.SUPABASE_SERVICE_ROLE_KEY as string) ||
-  (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string);
+  (process.env['SUPABASE_SERVICE_ROLE_KEY'] as string) ||
+  (process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY'] as string);
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+// -----------------------------
+// Template Loading
+// -----------------------------
+
+// Default template matching the designer
+const DEFAULT_TEMPLATE = {
+  name: 'Default Template',
+  page: {
+    size: 'A4', // 'A4' | 'Letter'
+    orientation: 'portrait', // 'portrait' | 'landscape'
+    margin: { top: 18, right: 14, bottom: 18, left: 14 }, // mm
+  },
+  branding: {
+    logoUrl: '',
+    primaryColor: '#111827',
+    accentColor: '#4f46e5',
+  },
+  sections: [
+    { key: 'cover',        enabled: true },
+    { key: 'summary',      enabled: true },
+    { key: 'categories',   enabled: true },
+    { key: 'categoryText', enabled: true },
+    { key: 'responses',    enabled: false },
+  ],
+};
+
+// Load template from request or use default
+function loadTemplate(templateData?: any): typeof DEFAULT_TEMPLATE {
+  if (!templateData || typeof templateData !== 'object') {
+    return DEFAULT_TEMPLATE;
+  }
+
+  const t = { ...DEFAULT_TEMPLATE, ...templateData };
+  t.page = {
+    ...DEFAULT_TEMPLATE.page,
+    ...(templateData.page || {}),
+    margin: { ...DEFAULT_TEMPLATE.page.margin, ...(templateData.page?.margin || {}) },
+  };
+  t.branding = { ...DEFAULT_TEMPLATE.branding, ...(templateData.branding || {}) };
+  t.sections = Array.isArray(templateData.sections) && templateData.sections.length
+    ? templateData.sections.filter((s: any) => s.key).map((s: any) => ({ key: s.key, enabled: !!s.enabled }))
+    : DEFAULT_TEMPLATE.sections;
+  return t;
+}
 
 // -----------------------------
 // HTML builders
 // -----------------------------
 function buildHtmlReport(params: {
+  template: typeof DEFAULT_TEMPLATE;
   surveyTitle: string;
   generatedAt: string;
   categoryPercents: Record<string, number>;
@@ -132,6 +209,7 @@ function buildHtmlReport(params: {
   userResponses?: Record<string, string>;
 }) {
   const {
+    template,
     surveyTitle,
     generatedAt,
     categoryPercents,
@@ -141,54 +219,129 @@ function buildHtmlReport(params: {
     userResponses = {},
   } = params;
 
-  const catRows = Object.entries(categoryPercents)
-    .map(([name, pct]) => {
-      const range = categoryRangesByTitle[name] || null;
-      const desc = range?.description ? escapeHtml(range.description) : '';
-      const color = range?.color || '#999';
-      const leftBar = `border-left:4px solid ${color}; background:#f8f9fa;`;
-      return `
+  const enabledSections = template.sections.filter(s => s.enabled);
+  
+  // Build sections based on template configuration
+  let sectionsHtml = '';
+
+  enabledSections.forEach(section => {
+    switch (section.key) {
+      case 'cover':
+        sectionsHtml += `
+  <section style="page-break-inside: avoid; padding: 30px 0 10px 0;">
+    <h1 style="margin:0 0 6px 0; color: ${template.branding.primaryColor};">${escapeHtml(surveyTitle)}</h1>
+    <div style="color:#555;">${escapeHtml(generatedAt)}</div>
+    ${template.branding.logoUrl ? `<img src="${escapeHtml(template.branding.logoUrl)}" alt="Logo" style="max-height: 60px; margin-top: 10px;" />` : ''}
+  </section>`;
+        break;
+
+      case 'summary':
+        const totalDesc = totalRange?.description
+          ? `<div style="margin-top:8px; padding:8px 12px; border-left:4px solid ${totalRange?.color || template.branding.accentColor}; background:#f8f9fa;">${escapeHtml(totalRange.description)}</div>`
+          : '';
+        sectionsHtml += `
+  <section style="margin-top:12px;">
+    <h2 style="margin:0 0 8px 0; color: ${template.branding.primaryColor};">Summary</h2>
+    <div style="font-size:22px; font-weight:700; color: ${template.branding.accentColor};">${Number(totalPercent).toFixed(2)}%</div>
+    ${totalDesc}
+  </section>`;
+        break;
+
+      case 'categories':
+        const catRows = Object.entries(categoryPercents)
+          .map(([name, pct]) => {
+            return `
         <tr>
           <td style="padding:8px; border:1px solid #ddd;">
             <div style="font-weight:600;">${escapeHtml(name)}</div>
-            ${desc ? `<div style="${leftBar} padding:6px 10px; margin-top:6px;">${desc}</div>` : ''}
           </td>
-          <td style="padding:8px; border:1px solid #ddd; text-align:right;">
+          <td style="padding:8px; border:1px solid #ddd; text-align:right; color: ${template.branding.accentColor}; font-weight: 600;">
             ${Number(pct).toFixed(2)}%
           </td>
         </tr>`;
-    })
-    .join('');
+          })
+          .join('');
 
-  const totalDesc = totalRange?.description
-    ? `<div style="margin-top:8px; padding:8px 12px; border-left:4px solid ${totalRange?.color || '#999'}; background:#f8f9fa;">${escapeHtml(totalRange.description)}</div>`
-    : '';
+        sectionsHtml += `
+  <section style="margin-top:16px;">
+    <h2 style="margin:0 0 8px 0; color: ${template.branding.primaryColor};">Category scores</h2>
+    <table>
+      <thead>
+        <tr>
+          <th style="text-align:left; padding:8px; border:1px solid #ddd; background:#f7f7f7; color: ${template.branding.primaryColor};">Category</th>
+          <th style="text-align:right; padding:8px; border:1px solid #ddd; background:#f7f7f7; color: ${template.branding.primaryColor};">Score</th>
+        </tr>
+      </thead>
+      <tbody>${catRows}</tbody>
+    </table>
+  </section>`;
+        break;
 
-  const details =
-    userResponses && Object.keys(userResponses).length > 0
-      ? `
-  <h2 style="margin-top:24px;">Your Responses</h2>
-  <table style="width:100%; border-collapse:collapse;">
-    <thead>
-      <tr>
-        <th style="padding:8px; border:1px solid #ddd; text-align:left;">Question ID</th>
-        <th style="padding:8px; border:1px solid #ddd; text-align:left;">Answer</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${Object.entries(userResponses)
-        .map(([qid, val]) => {
-          const v = Array.isArray(val) ? val.join(', ') : val == null ? '' : String(val);
-          return `
+      case 'categoryText':
+        const categoryTextRows = Object.entries(categoryPercents)
+          .map(([name, pct]) => {
+            const range = categoryRangesByTitle[name] || null;
+            const desc = range?.description ? escapeHtml(range.description) : 'No description available';
+            const color = range?.color || template.branding.accentColor;
+            const leftBar = `border-left:4px solid ${color}; background:#f8f9fa;`;
+            return `
+        <tr>
+          <td style="padding:8px; border:1px solid #ddd;">
+            <div style="font-weight:600; color: ${template.branding.primaryColor};">${escapeHtml(name)}</div>
+            <div style="${leftBar} padding:6px 10px; margin-top:6px;">${desc}</div>
+          </td>
+          <td style="padding:8px; border:1px solid #ddd; text-align:right; color: ${template.branding.accentColor}; font-weight: 600;">
+            ${Number(pct).toFixed(2)}%
+          </td>
+        </tr>`;
+          })
+          .join('');
+
+        sectionsHtml += `
+  <section style="margin-top:16px;">
+    <h2 style="margin:0 0 8px 0; color: ${template.branding.primaryColor};">Category details</h2>
+    <table>
+      <thead>
+        <tr>
+          <th style="text-align:left; padding:8px; border:1px solid #ddd; background:#f7f7f7; color: ${template.branding.primaryColor};">Category</th>
+          <th style="text-align:right; padding:8px; border:1px solid #ddd; background:#f7f7f7; color: ${template.branding.primaryColor};">Score</th>
+        </tr>
+      </thead>
+      <tbody>${categoryTextRows}</tbody>
+    </table>
+  </section>`;
+        break;
+
+      case 'responses':
+        if (userResponses && Object.keys(userResponses).length > 0) {
+          const responseRows = Object.entries(userResponses)
+            .map(([qid, val]) => {
+              const v = Array.isArray(val) ? val.join(', ') : val == null ? '' : String(val);
+              return `
         <tr>
           <td style="padding:8px; border:1px solid #ddd;">${escapeHtml(qid)}</td>
           <td style="padding:8px; border:1px solid #ddd;">${escapeHtml(v)}</td>
         </tr>`;
-        })
-        .join('')}
-    </tbody>
-  </table>`
-      : '';
+            })
+            .join('');
+
+          sectionsHtml += `
+  <section style="margin-top:16px;">
+    <h2 style="margin:0 0 8px 0; color: ${template.branding.primaryColor};">Your Responses</h2>
+    <table>
+      <thead>
+        <tr>
+          <th style="text-align:left; padding:8px; border:1px solid #ddd; background:#f7f7f7; color: ${template.branding.primaryColor};">Question ID</th>
+          <th style="text-align:left; padding:8px; border:1px solid #ddd; background:#f7f7f7; color: ${template.branding.primaryColor};">Answer</th>
+        </tr>
+      </thead>
+      <tbody>${responseRows}</tbody>
+    </table>
+  </section>`;
+        }
+        break;
+    }
+  });
 
   return `<!doctype html>
 <html>
@@ -196,7 +349,11 @@ function buildHtmlReport(params: {
   <meta charset="utf-8" />
   <title>${escapeHtml(surveyTitle)} — Report</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; color:#111; padding: 0 14mm 18mm 14mm; }
+    body { 
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; 
+      color: ${template.branding.primaryColor}; 
+      padding: 0 ${template.page.margin.left}mm ${template.page.margin.bottom}mm ${template.page.margin.left}mm; 
+    }
     h1, h2, h3 { line-height: 1.2; }
     table { border-collapse: collapse; width: 100%; }
     th, td { font-size: 14px; }
@@ -204,31 +361,7 @@ function buildHtmlReport(params: {
   </style>
 </head>
 <body>
-  <section style="page-break-inside: avoid; padding: 30px 0 10px 0;">
-    <h1 style="margin:0 0 6px 0;">${escapeHtml(surveyTitle)}</h1>
-    <div style="color:#555;">${escapeHtml(generatedAt)}</div>
-  </section>
-
-  <section style="margin-top:12px;">
-    <h2 style="margin:0 0 8px 0;">Summary</h2>
-    <div style="font-size:22px; font-weight:700;">${Number(totalPercent).toFixed(2)}%</div>
-    ${totalDesc}
-  </section>
-
-  <section style="margin-top:16px;">
-    <h2 style="margin:0 0 8px 0;">Category scores</h2>
-    <table>
-      <thead>
-        <tr>
-          <th style="text-align:left; padding:8px; border:1px solid #ddd; background:#f7f7f7;">Category</th>
-          <th style="text-align:right; padding:8px; border:1px solid #ddd; background:#f7f7f7;">Score</th>
-        </tr>
-      </thead>
-      <tbody>${catRows}</tbody>
-    </table>
-  </section>
-
-  ${details}
+  ${sectionsHtml}
 </body>
 </html>`;
 }
@@ -260,12 +393,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const body = req.body || {};
-    const { surveyId, respondentId, email, categoryScores, userResponses } = body as {
+    const { surveyId, respondentId, email, categoryScores, userResponses, template: templateData } = body as {
       surveyId?: string;
       respondentId?: string;
       email?: string;
       categoryScores?: Record<string, number>;
       userResponses?: Record<string, string>;
+      template?: any;
     };
 
     if (!surveyId || !respondentId || !email) {
@@ -335,7 +469,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       Object.keys(trustedCategoryPercents).length > 0 ? averagePercent(trustedCategoryPercents) : 0;
     const totalRange = pickRange(totalPercent, totRanges || []);
 
+    // Load template configuration
+    const template = loadTemplate(templateData);
+
     const html = buildHtmlReport({
+      template,
       surveyTitle: survey.title || 'Survey',
       generatedAt: new Date().toLocaleString(),
       categoryPercents: trustedCategoryPercents,
@@ -345,19 +483,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       userResponses: userResponses || {},
     });
 
-    // Generate PDF
+    // Generate PDF using template settings
     const browser = await launchBrowser();
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0' });
     const pdfBuffer = await page.pdf({
-      format: 'A4',
+      format: template.page.size as 'A4' | 'Letter',
+      landscape: template.page.orientation === 'landscape',
       printBackground: true,
-      margin: { top: '18mm', right: '14mm', bottom: '18mm', left: '14mm' },
+      margin: { 
+        top: `${template.page.margin.top}mm`, 
+        right: `${template.page.margin.right}mm`, 
+        bottom: `${template.page.margin.bottom}mm`, 
+        left: `${template.page.margin.left}mm` 
+      },
     });
     await browser.close();
 
     // ---------- Upload to Supabase Storage (bucket from env) ----------
-    const bucket = process.env.SUPABASE_REPORTS_BUCKET || 'survey-reports';
+    const bucket = process.env['SUPABASE_REPORTS_BUCKET'] || 'survey-reports';
     const fileName = `report-${surveyId}-${respondentId}-${uuidv4()}.pdf`;
 
     const { error: uploadErr } = await supabase.storage
@@ -386,24 +530,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 let emailSent = false;
 let emailMessage = '';
 
-if (process.env.MAIL_HOST) {
+if (process.env['MAIL_HOST']) {
   try {
     const secure =
-      String(process.env.MAIL_SECURE || '').toLowerCase() === 'true' ||
-      Number(process.env.MAIL_PORT) === 465;
+      String(process.env['MAIL_SECURE'] || '').toLowerCase() === 'true' ||
+      Number(process.env['MAIL_PORT']) === 465;
 
     const transporter = nodemailer.createTransport({
-      host: process.env.MAIL_HOST,
-      port: Number(process.env.MAIL_PORT || (secure ? 465 : 587)),
+      host: process.env['MAIL_HOST'],
+      port: Number(process.env['MAIL_PORT'] || (secure ? 465 : 587)),
       secure,
       auth:
-        process.env.MAIL_USER && process.env.MAIL_PASS
-          ? { user: process.env.MAIL_USER, pass: process.env.MAIL_PASS }
+        process.env['MAIL_USER'] && process.env['MAIL_PASS']
+          ? { user: process.env['MAIL_USER'], pass: process.env['MAIL_PASS'] }
           : undefined,
     });
 
     const info = await transporter.sendMail({
-      from: process.env.MAIL_FROM || 'no-reply@example.com',
+      from: process.env['MAIL_FROM'] || 'no-reply@example.com',
       to: email,
       subject: `Your report for ${survey?.title || 'Survey'}`,
       html: `

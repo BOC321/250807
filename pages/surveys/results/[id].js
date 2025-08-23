@@ -338,9 +338,35 @@ export default function SurveyResultsPage() {
           surveyId: id,
           respondentId: recentResponse.respondent_id,
           email,
-          // (optional) include data the API might use to render the PDF:
-          // categoryScores: getCategoryScores(),
-          // userResponses: getTopResponses(),
+          // Include category scores and responses for the report
+          categoryScores: (() => {
+            const scores = getCategoryScores();
+            const percentages = {};
+            Object.entries(scores).forEach(([title, score]) => {
+              percentages[title] = score * 100; // Convert to percentage
+            });
+            return percentages;
+          })(),
+          userResponses: {}, // Could be enhanced to include actual responses
+          // Load template from localStorage (same pattern as designer)
+          template: (() => {
+            try {
+              // Try survey-specific template first
+              const surveyTemplateKey = `report-template:${id}`;
+              let templateData = window.localStorage.getItem(surveyTemplateKey);
+              
+              // Fall back to global template if survey-specific doesn't exist
+              if (!templateData) {
+                const globalTemplateKey = 'report-template:global';
+                templateData = window.localStorage.getItem(globalTemplateKey);
+              }
+              
+              return templateData ? JSON.parse(templateData) : null;
+            } catch (e) {
+              console.warn('Failed to load template from localStorage:', e);
+              return null;
+            }
+          })(),
         }),
       });
 

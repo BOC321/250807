@@ -20,10 +20,17 @@ export default function SurveyAnalyticsPage() {
   const [survey, setSurvey] = useState(null);
   const [categories, setCategories] = useState([]);
   const [responses, setResponses] = useState([]);
+  const [allResponses, setAllResponses] = useState([]); // Store all responses
   const [answers, setAnswers] = useState([]);
+  const [allAnswers, setAllAnswers] = useState([]); // Store all answers
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('all');
+  
+  // Date range filtering states
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [dateFilterApplied, setDateFilterApplied] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -67,7 +74,8 @@ export default function SurveyAnalyticsPage() {
         .order('completed_at', { ascending: false });
 
       if (responsesError) throw responsesError;
-      setResponses(responsesData || []);
+      setAllResponses(responsesData || []); // Store all responses
+      setResponses(responsesData || []); // Initially show all responses
 
       // Fetch answers
       if (responsesData && responsesData.length > 0) {
@@ -78,13 +86,104 @@ export default function SurveyAnalyticsPage() {
           .in('response_id', responseIds);
 
         if (answersError) throw answersError;
-        setAnswers(answersData || []);
+        setAllAnswers(answersData || []); // Store all answers
+        setAnswers(answersData || []); // Initially show all answers
       }
     } catch (err) {
       console.error('Error in fetchSurveyData:', err);
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Date filtering functions
+  const applyDateFilter = () => {
+    if (!startDate && !endDate) {
+      // No date filter applied, show all data
+      setResponses(allResponses);
+      setAnswers(allAnswers);
+      setDateFilterApplied(false);
+      return;
+    }
+
+    let filteredResponses = [...allResponses];
+
+    // Apply date filtering
+    if (startDate) {
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0); // Start of day
+      filteredResponses = filteredResponses.filter(response => {
+        const responseDate = new Date(response.completed_at);
+        return responseDate >= start;
+      });
+    }
+
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999); // End of day
+      filteredResponses = filteredResponses.filter(response => {
+        const responseDate = new Date(response.completed_at);
+        return responseDate <= end;
+      });
+    }
+
+    // Filter answers based on filtered responses
+    const filteredResponseIds = filteredResponses.map(r => r.id);
+    const filteredAnswers = allAnswers.filter(answer => 
+      filteredResponseIds.includes(answer.response_id)
+    );
+
+    setResponses(filteredResponses);
+    setAnswers(filteredAnswers);
+    setDateFilterApplied(true);
+  };
+
+  const clearDateFilter = () => {
+    setStartDate('');
+    setEndDate('');
+    setResponses(allResponses);
+    setAnswers(allAnswers);
+    setDateFilterApplied(false);
+  };
+
+  const getDateRangePresets = () => {
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    
+    const lastWeek = new Date(now);
+    lastWeek.setDate(lastWeek.getDate() - 7);
+    const lastWeekStr = lastWeek.toISOString().split('T')[0];
+    
+    const lastMonth = new Date(now);
+    lastMonth.setMonth(lastMonth.getMonth() - 1);
+    const lastMonthStr = lastMonth.toISOString().split('T')[0];
+    
+    const last3Months = new Date(now);
+    last3Months.setMonth(last3Months.getMonth() - 3);
+    const last3MonthsStr = last3Months.toISOString().split('T')[0];
+
+    return {
+      today: { start: today, end: today, label: 'Today' },
+      yesterday: { start: yesterdayStr, end: yesterdayStr, label: 'Yesterday' },
+      lastWeek: { start: lastWeekStr, end: today, label: 'Last 7 days' },
+      lastMonth: { start: lastMonthStr, end: today, label: 'Last 30 days' },
+      last3Months: { start: last3MonthsStr, end: today, label: 'Last 3 months' },
+    };
+  };
+
+  const applyPreset = (preset) => {
+    const presets = getDateRangePresets();
+    const selected = presets[preset];
+    if (selected) {
+      setStartDate(selected.start);
+      setEndDate(selected.end);
+      // Apply filter after setting dates
+      setTimeout(() => applyDateFilter(), 0);
     }
   };
 
@@ -236,8 +335,12 @@ export default function SurveyAnalyticsPage() {
   const exportToCSV = () => {
     let csvContent = "Response ID,Respondent ID,Question ID,Answer,Score,Completed At\n";
     
-    answers.forEach(answer => {
-      const response = responses.find(r => r.id === answer.response_id);
+    // Use filtered data when date filter is applied
+    const dataToExport = dateFilterApplied ? answers : allAnswers;
+    const responsesToExport = dateFilterApplied ? responses : allResponses;
+    
+    dataToExport.forEach(answer => {
+      const response = responsesToExport.find(r => r.id === answer.response_id);
       if (response) {
         csvContent += `${response.id},${response.respondent_id},${answer.question_id},"${answer.value}",${answer.score || ''},${response.completed_at}\n`;
       }
@@ -246,8 +349,9 @@ export default function SurveyAnalyticsPage() {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
+    const dateRangeText = dateFilterApplied ? `_${startDate || 'all'}_to_${endDate || 'today'}` : '';
     link.setAttribute('href', url);
-    link.setAttribute('download', `survey_${id}_responses.csv`);
+    link.setAttribute('download', `survey_${id}_responses${dateRangeText}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -321,6 +425,125 @@ export default function SurveyAnalyticsPage() {
             Export to CSV
           </button>
         </div>
+      </div>
+
+      {/* Date Range Filter */}
+      <div style={{ 
+        backgroundColor: '#f8f9fa', 
+        padding: '1.5rem', 
+        borderRadius: '8px', 
+        marginBottom: '2rem',
+        border: '1px solid #dee2e6'
+      }}>
+        <h3 style={{ margin: '0 0 1rem 0', color: '#495057' }}>📅 Date Range Filter</h3>
+        
+        {/* Quick Presets */}
+        <div style={{ marginBottom: '1rem' }}>
+          <span style={{ marginRight: '1rem', fontWeight: 'bold', color: '#6c757d' }}>Quick select:</span>
+          {Object.entries(getDateRangePresets()).map(([key, preset]) => (
+            <button
+              key={key}
+              onClick={() => applyPreset(key)}
+              style={{
+                padding: '0.25rem 0.75rem',
+                margin: '0 0.25rem',
+                backgroundColor: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '0.875rem'
+              }}
+              onMouseOver={(e) => e.target.style.backgroundColor = '#0056b3'}
+              onMouseOut={(e) => e.target.style.backgroundColor = '#007bff'}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+        
+        {/* Custom Date Range */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <label htmlFor="start-date" style={{ fontWeight: 'bold', color: '#495057' }}>From:</label>
+            <input
+              id="start-date"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              style={{
+                padding: '0.5rem',
+                border: '1px solid #ced4da',
+                borderRadius: '4px',
+                fontSize: '0.875rem'
+              }}
+            />
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <label htmlFor="end-date" style={{ fontWeight: 'bold', color: '#495057' }}>To:</label>
+            <input
+              id="end-date"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              style={{
+                padding: '0.5rem',
+                border: '1px solid #ced4da',
+                borderRadius: '4px',
+                fontSize: '0.875rem'
+              }}
+            />
+          </div>
+          
+          <button
+            onClick={applyDateFilter}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+            onMouseOver={(e) => e.target.style.backgroundColor = '#218838'}
+            onMouseOut={(e) => e.target.style.backgroundColor = '#28a745'}
+          >
+            Apply Filter
+          </button>
+          
+          <button
+            onClick={clearDateFilter}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+            onMouseOver={(e) => e.target.style.backgroundColor = '#5a6268'}
+            onMouseOut={(e) => e.target.style.backgroundColor = '#6c757d'}
+          >
+            Clear Filter
+          </button>
+        </div>
+        
+        {/* Filter Status */}
+        {dateFilterApplied && (
+          <div style={{ 
+            marginTop: '1rem', 
+            padding: '0.75rem', 
+            backgroundColor: '#d1ecf1', 
+            color: '#0c5460',
+            borderRadius: '4px',
+            border: '1px solid #bee5eb'
+          }}>
+            <strong>🔍 Filter Active:</strong> Showing data from {startDate || 'beginning'} to {endDate || 'today'} 
+            ({responses.length} responses out of {allResponses.length} total)
+          </div>
+        )}
       </div>
 
       {/* Overview Metrics */}

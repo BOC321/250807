@@ -1,6 +1,54 @@
 // pages/admin/reports/designer.js
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase client (same pattern as question images)
+const supabase =
+  process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    ? createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      )
+    : null;
+
+/**
+ * Upload a logo file to the public `assets` bucket and return the public URL.
+ * Uses the same pattern as question image uploads.
+ */
+async function uploadLogo(file, surveyId) {
+  if (!supabase) throw new Error('No Supabase client');
+  if (!file) throw new Error('No file provided');
+
+  const uuid =
+    (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+      ? crypto.randomUUID()
+      : String(Date.now());
+
+  const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+  const path = surveyId 
+    ? `surveys/${surveyId}/logos/${uuid}.${ext}`
+    : `logos/${uuid}.${ext}`;
+
+  const { error } = await supabase
+    .storage
+    .from('assets')
+    .upload(path, file, {
+      cacheControl: '3600',
+      upsert: true,
+      contentType: file.type,
+    });
+
+  if (error) throw error;
+  
+  // Get public URL
+  const { data: urlData } = supabase.storage
+    .from('assets')
+    .getPublicUrl(path);
+
+  return urlData.publicUrl;
+}
 
 // ---- Template schema (kept intentionally simple & explicit) ----
 const DEFAULT_TEMPLATE = {
@@ -45,6 +93,9 @@ export default function PdfReportDesigner() {
   const [template, setTemplate] = useState(DEFAULT_TEMPLATE);
   const [loadedKey, setLoadedKey] = useState(storageKey);
   const [savedMessage, setSavedMessage] = useState('');
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoUploadError, setLogoUploadError] = useState('');
+  const [dragOver, setDragOver] = useState(false);
 
   // Load from localStorage on mount / when surveyId changes
   useEffect(() => {
@@ -116,6 +167,64 @@ export default function PdfReportDesigner() {
     setTemplate(DEFAULT_TEMPLATE);
   }
 
+  // Logo upload handlers
+  const handleLogoUpload = async (file) => {
+    if (!file) return;
+
+    setLogoUploading(true);
+    setLogoUploadError('');
+
+    try {
+      // Use the same upload pattern as question images
+      const logoUrl = await uploadLogo(file, surveyId);
+
+      // Update template with new logo URL
+      setTemplate(prev => ({
+        ...prev,
+        branding: {
+          ...prev.branding,
+          logoUrl
+        }
+      }));
+
+    } catch (error) {
+      setLogoUploadError(error.message || 'Failed to upload logo');
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    
+    const files = Array.from(e.dataTransfer.files);
+    const imageFile = files.find(file => file.type.startsWith('image/'));
+    
+    if (imageFile) {
+      handleLogoUpload(imageFile);
+    } else {
+      setLogoUploadError('Please drop an image file (JPEG, PNG, GIF, WebP, or SVG)');
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+  };
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleLogoUpload(file);
+    }
+  };
+
   const enabledSections = useMemo(
     () => template.sections.filter(s => s.enabled).map(s => s.key),
     [template.sections]
@@ -125,13 +234,32 @@ export default function PdfReportDesigner() {
     <div style={{ maxWidth: 980, margin: '0 auto', padding: '24px', fontFamily: 'system-ui, sans-serif' }}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
         <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+            <button
+              onClick={() => router.push('/admin/dashboard')}
+              style={{
+                padding: '8px 12px',
+                borderRadius: 6,
+                border: '1px solid #ddd',
+                background: '#f8f9fa',
+                cursor: 'pointer',
+                fontSize: 14,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6
+              }}
+              title="Back to Dashboard"
+            >
+              ← Dashboard
+            </button>
+          </div>
           <h1 style={{ margin: 0 }}>PDF Report Designer</h1>
           <div style={{ color: '#666', fontSize: 14 }}>
             Storage key: <code>{storageKey}</code>
           </div>
           {surveyId ? (
             <div style={{ marginTop: 6 }}>
-              <a href="/admin/reports/designer" style={{ fontSize: 14 }}>Switch to global template</a>
+              <Link href="/admin/reports/designer" style={{ fontSize: 14 }}>Switch to global template</Link>
             </div>
           ) : null}
         </div>
@@ -204,16 +332,82 @@ export default function PdfReportDesigner() {
 
           <div style={{ padding: 16, border: '1px solid #eee', borderRadius: 8 }}>
             <h2 style={{ marginTop: 0 }}>Branding</h2>
-            <label style={{ display: 'block', marginBottom: 10 }}>
-              <div style={{ fontSize: 13, color: '#555' }}>Logo URL (optional)</div>
+            
+            {/* Logo Upload Section */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 13, color: '#555', marginBottom: 8 }}>Logo</div>
+              
+              {/* Current Logo Preview */}
+              {template.branding.logoUrl && (
+                <div style={{ marginBottom: 10 }}>
+                  <img 
+                    src={template.branding.logoUrl} 
+                    alt="Current logo" 
+                    style={{ maxHeight: 60, maxWidth: 200, border: '1px solid #ddd', borderRadius: 4 }}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
+                  />
+                  <button
+                    onClick={() => setTemplate(prev => ({ ...prev, branding: { ...prev.branding, logoUrl: '' } }))}
+                    style={{ marginLeft: 10, padding: '4px 8px', fontSize: 12, borderRadius: 4, border: '1px solid #ddd', background: '#fff', cursor: 'pointer' }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+              
+              {/* Drag and Drop Area */}
+              <div
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                style={{
+                  border: `2px dashed ${dragOver ? '#4f46e5' : '#ddd'}`,
+                  borderRadius: 8,
+                  padding: 20,
+                  textAlign: 'center',
+                  backgroundColor: dragOver ? '#f8f9ff' : '#fafafa',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  marginBottom: 10
+                }}
+                onClick={() => document.getElementById('logoFileInput').click()}
+              >
+                {logoUploading ? (
+                  <div style={{ color: '#4f46e5' }}>Uploading...</div>
+                ) : (
+                  <div>
+                    <div style={{ fontSize: 14, color: '#666', marginBottom: 4 }}>📁 Drop logo here or click to browse</div>
+                    <div style={{ fontSize: 12, color: '#999' }}>JPEG, PNG, GIF, WebP, or SVG (max 5MB)</div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Hidden File Input */}
+              <input
+                id="logoFileInput"
+                type="file"
+                accept="image/*"
+                onChange={handleFileSelect}
+                style={{ display: 'none' }}
+              />
+              
+              {/* Logo URL Input (Alternative) */}
+              <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>Or enter logo URL directly:</div>
               <input
                 type="url"
                 placeholder="https://example.com/logo.png"
                 value={template.branding.logoUrl}
                 onChange={e => setTemplate(prev => ({ ...prev, branding: { ...prev.branding, logoUrl: e.target.value } }))}
-                style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ddd' }}
+                style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ddd', fontSize: 14 }}
               />
-            </label>
+              
+              {/* Error Message */}
+              {logoUploadError && (
+                <div style={{ color: '#dc3545', fontSize: 12, marginTop: 6 }}>{logoUploadError}</div>
+              )}
+            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <label>
