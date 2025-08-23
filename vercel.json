@@ -1,6 +1,6 @@
 {
   "functions": {
-    "pages/api/reports/generate.ts": {
+    "api/reports/generate.ts": {
       "maxDuration": 30
     }
   }
