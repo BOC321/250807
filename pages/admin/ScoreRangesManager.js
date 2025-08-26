@@ -157,34 +157,70 @@ const ScoreRangesManager = ({ surveyId, categories }) => {
         return;
       }
       
-      // Check for overlaps
-      const hasOverlap = scoreRanges.some(range => 
-        (minScore >= range.min_score && minScore < range.max_score) ||
-        (maxScore > range.min_score && maxScore <= range.max_score) ||
-        (minScore <= range.min_score && maxScore >= range.max_score)
-      );
+      // Check for overlaps (exclude current range if editing)
+      const hasOverlap = scoreRanges.some(range => {
+        if (editingRange && range.id === editingRange.id) {
+          return false; // Skip the range being edited
+        }
+        return (
+          (minScore >= range.min_score && minScore < range.max_score) ||
+          (maxScore > range.min_score && maxScore <= range.max_score) ||
+          (minScore <= range.min_score && maxScore >= range.max_score)
+        );
+      });
       
       if (hasOverlap) {
         setError('This range overlaps with an existing range');
         return;
       }
       
-      const { data, error } = await supabase
-        .from('score_ranges')
-        .insert([{
-          survey_id: surveyId,
-          category_id: selectedCategory === 'total' ? null : selectedCategory,
-          min_score: minScore,
-          max_score: maxScore,
-          color: newRange.color,
-          description: newRange.description
-        }])
-        .select();
+      let data, error;
+      
+      if (editingRange) {
+        // Update existing range
+        const result = await supabase
+          .from('score_ranges')
+          .update({
+            min_score: minScore,
+            max_score: maxScore,
+            color: newRange.color,
+            description: newRange.description
+          })
+          .eq('id', editingRange.id)
+          .select();
+        
+        data = result.data;
+        error = result.error;
+      } else {
+        // Create new range
+        const result = await supabase
+          .from('score_ranges')
+          .insert([{
+            survey_id: surveyId,
+            category_id: selectedCategory === 'total' ? null : selectedCategory,
+            min_score: minScore,
+            max_score: maxScore,
+            color: newRange.color,
+            description: newRange.description
+          }])
+          .select();
+        
+        data = result.data;
+        error = result.error;
+      }
       
       if (error) throw error;
       
       // Update the local state
-      const updatedRanges = [...scoreRanges, data[0]];
+      let updatedRanges;
+      if (editingRange) {
+        updatedRanges = scoreRanges.map(range => 
+          range.id === editingRange.id ? data[0] : range
+        );
+      } else {
+        updatedRanges = [...scoreRanges, data[0]];
+      }
+      
       setScoreRanges(updatedRanges);
       
       // Check if there are gaps and show a warning
@@ -196,6 +232,7 @@ const ScoreRangesManager = ({ surveyId, categories }) => {
       }
       
       // Reset the form
+      setEditingRange(null);
       setNewRange({
         minScore: '',
         maxScore: '',
@@ -203,7 +240,7 @@ const ScoreRangesManager = ({ surveyId, categories }) => {
         description: ''
       });
     } catch (err) {
-      console.error('Error adding score range:', err);
+      console.error('Error saving score range:', err);
       setError(err.message);
     }
   };
@@ -237,6 +274,26 @@ const ScoreRangesManager = ({ surveyId, categories }) => {
       console.error('Error deleting score range:', err);
       setError(err.message);
     }
+  };
+
+  const handleEditRange = (range) => {
+    setEditingRange(range);
+    setNewRange({
+      minScore: range.min_score.toString(),
+      maxScore: range.max_score.toString(),
+      color: range.color,
+      description: range.description
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingRange(null);
+    setNewRange({
+      minScore: '',
+      maxScore: '',
+      color: '#3B82F6',
+      description: ''
+    });
   };
 
   const getCategoryName = (categoryId) => {
@@ -330,7 +387,7 @@ const ScoreRangesManager = ({ surveyId, categories }) => {
       ) : (
         <div>
           <div style={{ marginBottom: '1rem' }}>
-            <h3>Add New Range</h3>
+            <h3>{editingRange ? 'Edit Range' : 'Add New Range'}</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 2fr auto', gap: '0.5rem', alignItems: 'center' }}>
               <div>
                 <label htmlFor="min-score" style={{ display: 'block', marginBottom: '0.25rem' }}>
@@ -394,20 +451,36 @@ const ScoreRangesManager = ({ surveyId, categories }) => {
                 />
               </div>
               <div>
-                <button
-                  onClick={handleAddRange}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    backgroundColor: '#28a745',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    marginTop: '1.5rem'
-                  }}
-                >
-                  Add
-                </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1.5rem' }}>
+                  <button
+                    onClick={handleAddRange}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      backgroundColor: editingRange ? '#28a745' : '#28a745',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {editingRange ? 'Update' : 'Add'}
+                  </button>
+                  {editingRange && (
+                    <button
+                      onClick={handleCancelEdit}
+                      style={{
+                        padding: '0.5rem 1rem',
+                        backgroundColor: '#6c757d',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -462,19 +535,34 @@ const ScoreRangesManager = ({ surveyId, categories }) => {
                         </div>
                       </td>
                       <td style={{ border: '1px solid #ddd', padding: '0.5rem' }}>
-                        <button
-                          onClick={() => handleDeleteRange(range.id)}
-                          style={{
-                            padding: '0.25rem 0.5rem',
-                            backgroundColor: '#dc3545',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          Delete
-                        </button>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button
+                            onClick={() => handleEditRange(range)}
+                            style={{
+                              padding: '0.25rem 0.5rem',
+                              backgroundColor: '#007bff',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteRange(range.id)}
+                            style={{
+                              padding: '0.25rem 0.5rem',
+                              backgroundColor: '#dc3545',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
