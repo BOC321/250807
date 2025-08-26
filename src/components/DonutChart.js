@@ -153,23 +153,26 @@ const DonutChart = ({
       const { width, height, ctx } = chart;
       ctx.restore();
       
-      const fontSize = Math.min(width, height) / 12;
-      ctx.font = `bold ${fontSize}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      
       const centerX = width / 2;
       const centerY = height / 2;
       
-      // Draw "Total" text at the top of the inner circle
-      ctx.fillStyle = '#333';
-      ctx.font = `${fontSize * 0.7}px sans-serif`;
-      ctx.fillText('Total', centerX, centerY - fontSize * 1.2);
+      // Calculate font sizes based on chart size
+      const baseFontSize = Math.min(width, height) / 10;
+      const titleFontSize = baseFontSize * 0.8;
+      const scoreFontSize = baseFontSize * 1.3;
       
-      // Draw the percentage below the Total text
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
+      // Draw "Total" text centered above the percentage
+      ctx.fillStyle = '#666';
+      ctx.font = `${titleFontSize}px sans-serif`;
+      ctx.fillText('Total', centerX, centerY - scoreFontSize * 0.6);
+      
+      // Draw the percentage centered below the Total text
       ctx.fillStyle = '#000';
-      ctx.font = `bold ${fontSize * 1.2}px sans-serif`;
-      ctx.fillText(`${chartData.overallScore}%`, centerX, centerY - fontSize * 0.2);
+      ctx.font = `bold ${scoreFontSize}px sans-serif`;
+      ctx.fillText(`${chartData.overallScore}%`, centerX, centerY + titleFontSize * 0.3);
       
       ctx.save();
     }
@@ -202,63 +205,12 @@ const DonutChart = ({
         </h3>
       )}
       
-      {/* Visual guide for segment distinction */}
-      <div style={{
-        textAlign: 'center',
-        fontSize: '0.9rem',
-        color: '#495057',
-        marginBottom: '0.5rem',
-        fontWeight: 'bold'
-      }}>
-        Segments use different opacity levels and thick black borders for distinction
-      </div>
-      
       <div style={{ height: size, position: 'relative' }}>
         <Doughnut 
           data={chartData} 
           options={options} 
           plugins={[centerTextPlugin]}
         />
-      </div>
-      
-      {/* Additional visual legend with patterns */}
-      <div style={{
-        marginTop: '1rem',
-        padding: '0.75rem',
-        backgroundColor: '#ffffff',
-        borderRadius: '6px',
-        border: '1px solid #dee2e6'
-      }}>
-        <div style={{
-          fontSize: '0.95rem',
-          fontWeight: 'bold',
-          marginBottom: '0.5rem',
-          color: '#495057'
-        }}>
-          Visual Distinction Guide:
-        </div>
-        <div style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '0.75rem',
-          fontSize: '0.85rem',
-          color: '#6c757d',
-          lineHeight: '1.4'
-        }}>
-          <span>● Full opacity (100%)</span>
-          <span>◐ High opacity (70%)</span>
-          <span>○ Low opacity (40%)</span>
-          <span>◑ Very high opacity (90%)</span>
-          <span>◒ Medium opacity (60%)</span>
-        </div>
-        <div style={{
-          marginTop: '0.5rem',
-          fontSize: '0.8rem',
-          color: '#868e96',
-          fontStyle: 'italic'
-        }}>
-          Each category uses a different opacity level of the same base color with thick black separators
-        </div>
       </div>
     </div>
   );
