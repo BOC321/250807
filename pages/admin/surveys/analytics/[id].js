@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { createClient } from '@supabase/supabase-js';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement, ArcElement } from 'chart.js';
 import { Bar, Line, Pie } from 'react-chartjs-2';
+import DonutChart from '../../../../src/components/DonutChart';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement, ArcElement);
 
@@ -26,6 +27,7 @@ export default function SurveyAnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [scoreRanges, setScoreRanges] = useState({ categories: {}, total: [] });
   
   // Date range filtering states
   const [startDate, setStartDate] = useState('');
@@ -89,6 +91,10 @@ export default function SurveyAnalyticsPage() {
         setAllAnswers(answersData || []); // Store all answers
         setAnswers(answersData || []); // Initially show all answers
       }
+      
+      // Fetch score ranges
+      const ranges = await getScoreRanges();
+      setScoreRanges(ranges);
     } catch (err) {
       console.error('Error in fetchSurveyData:', err);
       setError(err.message);
@@ -233,13 +239,45 @@ export default function SurveyAnalyticsPage() {
       
       if (categoryAnswers.length > 0) {
         const totalScore = categoryAnswers.reduce((sum, answer) => sum + (answer.score || 0), 0);
-        categoryScores[category.title] = totalScore / categoryAnswers.length;
+        const maxPossibleScore = categoryAnswers.length * 5; // Assuming max score is 5
+        categoryScores[category.title] = totalScore / maxPossibleScore; // Convert to 0-1 range for percentage calculation
       } else {
         categoryScores[category.title] = 0;
       }
     });
     
     return categoryScores;
+  };
+
+  const getScoreRanges = async () => {
+    if (!supabase) return { categories: {}, total: [] };
+    
+    try {
+      const { data: categoryRanges, error: catErr } = await supabase
+        .from('score_ranges')
+        .select('*')
+        .eq('survey_id', id)
+        .not('category_id', 'is', null);
+      if (catErr) throw catErr;
+
+      const { data: totalRanges, error: totErr } = await supabase
+        .from('score_ranges')
+        .select('*')
+        .eq('survey_id', id)
+        .is('category_id', null);
+      if (totErr) throw totErr;
+
+      const rangesByCategory = {};
+      categoryRanges?.forEach(r => {
+        if (!rangesByCategory[r.category_id]) rangesByCategory[r.category_id] = [];
+        rangesByCategory[r.category_id].push(r);
+      });
+
+      return { categories: rangesByCategory, total: totalRanges || [] };
+    } catch (err) {
+      console.error('Error fetching score ranges:', err);
+      return { categories: {}, total: [] };
+    }
   };
 
   const getQuestionResponses = (questionId) => {
@@ -570,11 +608,17 @@ export default function SurveyAnalyticsPage() {
         </div>
       </div>
 
-      {/* Category Scores */}
+      {/* Category Scores - Donut Chart */}
       <div style={{ marginBottom: '2rem' }}>
         <h2>Category Scores</h2>
         <div style={{ backgroundColor: '#fff', padding: '1rem', borderRadius: '4px', border: '1px solid #ddd' }}>
-          <Bar data={categoryScoresChartData} options={{ responsive: true }} />
+          <DonutChart 
+            categoryScores={categoryScores}
+            scoreRanges={scoreRanges}
+            categories={categories}
+            showTitle={false}
+            size={400}
+          />
         </div>
       </div>
 

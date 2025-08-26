@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { createClient } from '@supabase/supabase-js';
 import { computeScores } from '../../../src/lib/scoring';
+import DonutChart from '../../../src/components/DonutChart';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -433,7 +434,8 @@ export default function SurveyResultsPage() {
                 <div style={{ 
                   color: '#555',
                   fontSize: '0.95rem',
-                  lineHeight: '1.4'
+                  lineHeight: '1.4',
+                  whiteSpace: 'pre-wrap'
                 }}>
                   {range.description}
                 </div>
@@ -450,6 +452,17 @@ export default function SurveyResultsPage() {
             </div>
           );
         })}
+      </div>
+
+      {/* Score Overview Donut Chart */}
+      <div style={{ marginBottom: '2rem' }}>
+        <DonutChart 
+          categoryScores={categoryScores}
+          scoreRanges={scoreRanges}
+          categories={categories}
+          showTitle={true}
+          size={350}
+        />
       </div>
 
       <h2 style={{ marginTop: '2rem' }}>Request Detailed Report</h2>

@@ -389,7 +389,7 @@ function buildHtmlReport(params: {
         const categoryTextRows = Object.entries(categoryPercents)
           .map(([name, pct]) => {
             const range = categoryRangesByTitle[name] || null;
-            const desc = range?.description ? escapeHtml(range.description) : 'No description available';
+            const desc = range?.description ? escapeHtml(range.description).replace(/\n/g, '<br>') : 'No description available';
             const color = range?.color || template.branding.accentColor;
             const leftBar = `border-left:4px solid ${color}; background:#f8f9fa;`;
             return `

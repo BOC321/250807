@@ -66,6 +66,7 @@ const DEFAULT_TEMPLATE = {
   sections: [
     { key: 'cover',        enabled: true },
     { key: 'summary',      enabled: true },
+    { key: 'donutChart',   enabled: true },
     { key: 'categories',   enabled: true },
     { key: 'categoryText', enabled: true },
     { key: 'responses',    enabled: false },
@@ -75,6 +76,7 @@ const DEFAULT_TEMPLATE = {
 const ALL_SECTION_META = {
   cover:        { label: 'Cover' },
   summary:      { label: 'Summary (total % + band text)' },
+  donutChart:   { label: 'Score Overview (donut)' },
   categories:   { label: 'Categories (per-category %)' },
   categoryText: { label: 'Category text (per-category band descriptions)' },
   responses:    { label: 'Responses (answers table)' },
@@ -125,11 +127,19 @@ export default function PdfReportDesigner() {
       margin: { ...DEFAULT_TEMPLATE.page.margin, ...(incoming.page?.margin || {}) },
     };
     t.branding = { ...DEFAULT_TEMPLATE.branding, ...(incoming.branding || {}) };
-    t.sections = Array.isArray(incoming.sections) && incoming.sections.length
-      ? incoming.sections
-          .filter(s => ALL_SECTION_META[s.key])
-          .map(s => ({ key: s.key, enabled: !!s.enabled }))
-      : DEFAULT_TEMPLATE.sections;
+    
+    // Ensure all sections from DEFAULT_TEMPLATE are included
+    const existingSections = Array.isArray(incoming.sections) ? incoming.sections : [];
+    const mergedSections = DEFAULT_TEMPLATE.sections.map(defaultSection => {
+      const existingSection = existingSections.find(s => s.key === defaultSection.key);
+      return existingSection || defaultSection;
+    });
+    
+    // Filter to only valid sections and ensure proper structure
+    t.sections = mergedSections
+      .filter(s => ALL_SECTION_META[s.key])
+      .map(s => ({ key: s.key, enabled: !!s.enabled }));
+    
     return t;
   }
 
@@ -165,6 +175,32 @@ export default function PdfReportDesigner() {
 
   function resetToDefault() {
     setTemplate(DEFAULT_TEMPLATE);
+  }
+
+  function updateToLatestTemplate() {
+    // Force merge with latest template to ensure new sections are included
+    const currentSectionKeys = template.sections.map(s => s.key);
+    const updatedTemplate = safeMergeTemplate(template);
+    const newSectionKeys = updatedTemplate.sections.map(s => s.key);
+    
+    console.log('Current sections:', currentSectionKeys);
+    console.log('Updated sections:', newSectionKeys);
+    
+    setTemplate(updatedTemplate);
+    
+    // Save the updated template immediately with the new data
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(updatedTemplate));
+      const addedSections = newSectionKeys.filter(key => !currentSectionKeys.includes(key));
+      const message = addedSections.length > 0 
+        ? `Template updated! Added: ${addedSections.join(', ')}`
+        : 'Template updated (no new sections added)';
+      setSavedMessage(message);
+      setTimeout(() => setSavedMessage(''), 4000);
+    } catch (e) {
+      setSavedMessage('Failed to save updated template');
+      setTimeout(() => setSavedMessage(''), 2500);
+    }
   }
 
   // Logo upload handlers
@@ -264,6 +300,14 @@ export default function PdfReportDesigner() {
           ) : null}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={updateToLatestTemplate}
+            style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #4f46e5', background: '#f8f9ff', color: '#4f46e5', cursor: 'pointer', fontSize: 14 }}>
+            Update Template
+          </button>
+          <button onClick={() => window.location.reload()}
+            style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #28a745', background: '#f8fff9', color: '#28a745', cursor: 'pointer', fontSize: 14 }}>
+            Force Refresh
+          </button>
           <button onClick={resetToDefault}
             style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #ddd', background: '#fff', cursor: 'pointer' }}>
             Reset to default
