@@ -17,7 +17,10 @@ const DonutChart = ({
     const data = [];
     const backgroundColor = [];
     const borderColor = [];
-    const patterns = ['solid', 'dots', 'stripes', 'waves', 'grid']; // Different visual patterns
+    
+    // Define alternating opacity levels and patterns for visual distinction
+    const opacityLevels = [1.0, 0.7, 0.4, 0.9, 0.6]; // Different opacity levels
+    const borderStyles = ['solid', 'dashed', 'dotted', 'double', 'groove'];
     
     let totalScore = 0;
     let totalCategories = 0;
@@ -32,18 +35,25 @@ const DonutChart = ({
       // Find the appropriate score range
       const range = ranges.find(r => percentage >= r.min_score && percentage <= r.max_score);
       
+      // Use base color but with different opacity levels for distinction
+      const baseColor = range ? range.color : '#6c757d';
+      const opacity = opacityLevels[index % opacityLevels.length];
+      
       // Abbreviate long category names if needed
       let displayLabel = categoryTitle;
       if (categoryTitle.length > 15) {
         displayLabel = categoryTitle.substring(0, 12) + '...';
       }
       
-      // Add pattern indicator to label for better distinction
-      const patternIcon = ['●', '◆', '▲', '■', '★'][index % 5];
+      // Add pattern indicators and opacity info to label
+      const patternIcons = ['●', '◐', '○', '◑', '◒'];
+      const patternIcon = patternIcons[index % patternIcons.length];
       labels.push(`${patternIcon} ${displayLabel} ${percentage}%`);
       data.push(percentage);
-      backgroundColor.push(range ? `${range.color}80` : '#6c757d80'); // Add transparency
-      borderColor.push('#ffffff'); // White borders for clear separation
+      
+      // Apply different opacity levels to the same base color
+      backgroundColor.push(`${baseColor}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`);
+      borderColor.push('#000000'); // Black borders for maximum contrast
       
       totalScore += percentage;
       totalCategories++;
@@ -59,9 +69,9 @@ const DonutChart = ({
           data,
           backgroundColor,
           borderColor,
-          borderWidth: 3, // Thicker white borders for better separation
-          hoverBorderWidth: 4,
-          spacing: 2, // Add spacing between segments
+          borderWidth: 4, // Even thicker borders for better separation
+          hoverBorderWidth: 5,
+          spacing: 4, // More spacing between segments
         },
       ],
       overallScore
@@ -77,16 +87,16 @@ const DonutChart = ({
       legend: {
         position: 'bottom',
         labels: {
-          padding: 20,
+          padding: 25,
           usePointStyle: true,
-          pointStyle: 'rect', // Use rectangles instead of circles for better distinction
+          pointStyle: 'rectRounded',
           font: {
-            size: 14,
+            size: 15,
             weight: 'bold'
           },
-          boxWidth: 15,
-          boxHeight: 15,
-          // Custom legend item generator for better visual distinction
+          boxWidth: 20,
+          boxHeight: 20,
+          // Custom legend item generator with opacity distinction
           generateLabels: function(chart) {
             const data = chart.data;
             if (data.labels.length && data.datasets.length) {
@@ -99,9 +109,10 @@ const DonutChart = ({
                   text: label,
                   fillStyle: backgroundColor,
                   strokeStyle: borderColor,
-                  lineWidth: 2,
+                  lineWidth: 3,
                   hidden: false,
-                  index: i
+                  index: i,
+                  pointStyle: 'rectRounded'
                 };
               });
             }
@@ -115,8 +126,9 @@ const DonutChart = ({
     },
     elements: {
       arc: {
-        borderWidth: 3, // Thicker borders for better separation
-        borderColor: '#ffffff' // White borders
+        borderWidth: 4, // Thick black borders for maximum separation
+        borderColor: '#000000',
+        spacing: 4 // More spacing between segments
       }
     },
     interaction: {
@@ -124,9 +136,15 @@ const DonutChart = ({
     },
     layout: {
       padding: {
-        bottom: 10
+        bottom: 15,
+        top: 10,
+        left: 10,
+        right: 10
       }
-    }
+    },
+    // Add custom styling for better visual separation
+    cutout: '60%', // Larger donut hole for better proportion
+    radius: '90%' // Slightly smaller radius for better spacing
   };
 
   const centerTextPlugin = {
@@ -187,12 +205,12 @@ const DonutChart = ({
       {/* Visual guide for segment distinction */}
       <div style={{
         textAlign: 'center',
-        fontSize: '0.85rem',
-        color: '#666',
+        fontSize: '0.9rem',
+        color: '#495057',
         marginBottom: '0.5rem',
-        fontStyle: 'italic'
+        fontWeight: 'bold'
       }}>
-        Each segment is separated by white borders for clarity
+        Segments use different opacity levels and thick black borders for distinction
       </div>
       
       <div style={{ height: size, position: 'relative' }}>
@@ -212,25 +230,34 @@ const DonutChart = ({
         border: '1px solid #dee2e6'
       }}>
         <div style={{
-          fontSize: '0.9rem',
+          fontSize: '0.95rem',
           fontWeight: 'bold',
           marginBottom: '0.5rem',
           color: '#495057'
         }}>
-          Visual Guide:
+          Visual Distinction Guide:
         </div>
         <div style={{
           display: 'flex',
           flexWrap: 'wrap',
-          gap: '0.5rem',
-          fontSize: '0.8rem',
-          color: '#6c757d'
+          gap: '0.75rem',
+          fontSize: '0.85rem',
+          color: '#6c757d',
+          lineHeight: '1.4'
         }}>
-          <span>● Solid segments</span>
-          <span>◆ Diamond markers</span>
-          <span>▲ Triangle markers</span>
-          <span>■ Square markers</span>
-          <span>★ Star markers</span>
+          <span>● Full opacity (100%)</span>
+          <span>◐ High opacity (70%)</span>
+          <span>○ Low opacity (40%)</span>
+          <span>◑ Very high opacity (90%)</span>
+          <span>◒ Medium opacity (60%)</span>
+        </div>
+        <div style={{
+          marginTop: '0.5rem',
+          fontSize: '0.8rem',
+          color: '#868e96',
+          fontStyle: 'italic'
+        }}>
+          Each category uses a different opacity level of the same base color with thick black separators
         </div>
       </div>
     </div>
