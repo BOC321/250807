@@ -170,6 +170,7 @@ const DEFAULT_TEMPLATE = {
   sections: [
     { key: 'cover',        enabled: true },
     { key: 'summary',      enabled: true },
+    { key: 'donutChart',   enabled: true },
     { key: 'categories',   enabled: true },
     { key: 'categoryText', enabled: true },
     { key: 'responses',    enabled: false },
@@ -244,6 +245,143 @@ function buildHtmlReport(params: {
     <h2 style="margin:0 0 8px 0; color: ${template.branding.primaryColor};">Summary</h2>
     <div style="font-size:22px; font-weight:700; color: ${template.branding.accentColor};">${Number(totalPercent).toFixed(2)}%</div>
     ${totalDesc}
+  </section>`;
+        break;
+
+      case 'donutChart':
+        // Generate enhanced donut chart representation for PDF - Updated with card layout
+        const categoryEntries = Object.entries(categoryPercents);
+        
+        if (categoryEntries.length === 0) {
+          sectionsHtml += `
+  <section style="margin-top:16px; page-break-inside: avoid;">
+    <h2 style="margin:0 0 16px 0; color: ${template.branding.primaryColor};">Score Overview</h2>
+    <div style="text-align: center; color: #666;">No data available</div>
+  </section>`;
+          break;
+        }
+        
+        // Calculate segments with angles
+        let cumulativePercentage = 0;
+        const segments = categoryEntries.map(([name, pct], index) => {
+          const range = categoryRangesByTitle[name];
+          const color = range?.color || template.branding.accentColor;
+          const percentage = Number(pct);
+          const displayName = name.length > 15 ? name.substring(0, 12) + '...' : name;
+          
+          const segment = {
+            name: displayName,
+            fullName: name,
+            percentage,
+            color,
+            startPercentage: cumulativePercentage,
+            endPercentage: cumulativePercentage + percentage
+          };
+          
+          cumulativePercentage += percentage;
+          return segment;
+        });
+        
+        // Create individual segment divs using transform rotation
+        const segmentDivs = segments.map((segment, index) => {
+          const startAngle = (segment.startPercentage / 100) * 360;
+          const segmentAngle = (segment.percentage / 100) * 360;
+          
+          // Create a pie slice using border method
+          return `
+            <div style="
+              position: absolute;
+              top: 0;
+              left: 0;
+              width: 200px;
+              height: 200px;
+              border-radius: 50%;
+              background: conic-gradient(
+                from ${startAngle}deg,
+                ${segment.color} 0deg ${segmentAngle}deg,
+                transparent ${segmentAngle}deg 360deg
+              );
+              mask: radial-gradient(circle at center, transparent 30%, black 30%, black 50%, transparent 50%);
+              -webkit-mask: radial-gradient(circle at center, transparent 30%, black 30%, black 50%, transparent 50%);
+            "></div>`;
+        }).join('');
+        
+        // Fallback: use simple pie chart approach
+        const pieSegments = segments.map((segment, index) => {
+          const size = Math.max(10, (segment.percentage / 100) * 300); // Scale size
+          return `
+            <div style="
+              display: flex;
+              align-items: center;
+              margin-bottom: 8px;
+              padding: 8px;
+              border-left: 4px solid ${segment.color};
+              background: ${segment.color}15;
+              border-radius: 4px;
+            ">
+              <div style="
+                width: 20px;
+                height: 20px;
+                border-radius: 50%;
+                background: ${segment.color};
+                margin-right: 12px;
+                flex-shrink: 0;
+              "></div>
+              <div style="flex: 1; font-size: 14px; font-weight: 500;">
+                ${escapeHtml(segment.name)}
+              </div>
+              <div style="
+                font-size: 16px;
+                font-weight: bold;
+                color: ${segment.color};
+                min-width: 50px;
+                text-align: right;
+              ">
+                ${segment.percentage.toFixed(1)}%
+              </div>
+            </div>`;
+        }).join('');
+        
+        // Create legend items
+        const legendItems = segments.map(segment => {
+          return `
+            <div style="display: flex; align-items: center; margin-bottom: 6px; font-size: 12px;">
+              <div style="width: 12px; height: 12px; background-color: ${segment.color}; margin-right: 8px; border-radius: 2px; flex-shrink: 0;"></div>
+              <span style="flex: 1;">${escapeHtml(segment.name)} ${segment.percentage.toFixed(1)}%</span>
+            </div>`;
+        }).join('');
+        
+        sectionsHtml += `
+  <section style="margin-top:16px; page-break-inside: avoid;">
+    <h2 style="margin:0 0 16px 0; color: ${template.branding.primaryColor};">Score Overview</h2>
+    
+    <!-- Enhanced Card-based Display -->
+    <div style="display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;">
+      
+      <!-- Category Cards -->
+      <div style="flex: 1; min-width: 250px;">
+        ${pieSegments}
+      </div>
+      
+      <!-- Total Score Circle -->
+      <div style="
+        width: 140px;
+        height: 140px;
+        border-radius: 50%;
+        border: 8px solid ${template.branding.accentColor};
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        background: white;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        flex-shrink: 0;
+      ">
+        <div style="font-size: 16px; color: #666; margin-bottom: 4px; font-weight: 500;">Total</div>
+        <div style="font-size: 28px; font-weight: bold; color: ${template.branding.primaryColor};">${Number(totalPercent).toFixed(0)}%</div>
+      </div>
+      
+    </div>
   </section>`;
         break;
 
