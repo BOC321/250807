@@ -451,7 +451,13 @@ const ScoreRangesManager = ({ surveyId, categories }) => {
                         </div>
                       </td>
                       <td style={{ border: '1px solid #ddd', padding: '0.5rem' }}>
-                        <div style={{ whiteSpace: 'pre-wrap' }}>
+                        <div style={{ 
+                          whiteSpace: 'pre-wrap',
+                          wordWrap: 'break-word',
+                          overflowWrap: 'break-word',
+                          maxWidth: '400px',
+                          lineHeight: '1.5'
+                        }}>
                           {range.description}
                         </div>
                       </td>
