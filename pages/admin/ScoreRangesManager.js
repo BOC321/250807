@@ -376,12 +376,21 @@ const ScoreRangesManager = ({ surveyId, categories }) => {
                 <label htmlFor="description" style={{ display: 'block', marginBottom: '0.25rem' }}>
                   Description:
                 </label>
-                <input
+                <textarea
                   id="description"
-                  type="text"
                   value={newRange.description}
                   onChange={(e) => setNewRange({...newRange, description: e.target.value})}
-                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }}
+                  style={{ 
+                    width: '100%', 
+                    padding: '0.5rem', 
+                    border: '1px solid #ddd', 
+                    borderRadius: '4px',
+                    resize: 'vertical',
+                    minHeight: '38px',
+                    fontFamily: 'inherit'
+                  }}
+                  rows="2"
+                  placeholder="Enter description (press Enter for new lines)"
                 />
               </div>
               <div>
@@ -442,7 +451,9 @@ const ScoreRangesManager = ({ surveyId, categories }) => {
                         </div>
                       </td>
                       <td style={{ border: '1px solid #ddd', padding: '0.5rem' }}>
-                        {range.description}
+                        <div style={{ whiteSpace: 'pre-wrap' }}>
+                          {range.description}
+                        </div>
                       </td>
                       <td style={{ border: '1px solid #ddd', padding: '0.5rem' }}>
                         <button
