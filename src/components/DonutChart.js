@@ -156,23 +156,23 @@ const DonutChart = ({
       const centerX = width / 2;
       const centerY = height / 2;
       
-      // Calculate font sizes based on chart size
-      const baseFontSize = Math.min(width, height) / 10;
-      const titleFontSize = baseFontSize * 0.8;
-      const scoreFontSize = baseFontSize * 1.3;
+      // Make font sizes much smaller to fit better in the center circle
+      const baseFontSize = Math.min(width, height) / 18; // Smaller base size
+      const titleFontSize = baseFontSize * 0.9; // Smaller "Total" text
+      const scoreFontSize = baseFontSize * 1.6; // Smaller percentage
       
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       
-      // Draw "Total" text centered above the percentage
+      // Draw "Total" text centered, positioned slightly above center
       ctx.fillStyle = '#666';
       ctx.font = `${titleFontSize}px sans-serif`;
-      ctx.fillText('Total', centerX, centerY - scoreFontSize * 0.6);
+      ctx.fillText('Total', centerX, centerY - scoreFontSize * 0.4);
       
-      // Draw the percentage centered below the Total text
+      // Draw the percentage centered, positioned slightly below center
       ctx.fillStyle = '#000';
       ctx.font = `bold ${scoreFontSize}px sans-serif`;
-      ctx.fillText(`${chartData.overallScore}%`, centerX, centerY + titleFontSize * 0.3);
+      ctx.fillText(`${chartData.overallScore}%`, centerX, centerY + titleFontSize * 0.4);
       
       ctx.save();
     }
