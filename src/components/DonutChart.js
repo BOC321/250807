@@ -161,21 +161,21 @@ const DonutChart = ({
       const titleFontSize = baseFontSize * 0.9; // Smaller "Total" text
       const scoreFontSize = baseFontSize * 1.6; // Smaller percentage
       
-      // Move the entire text group up significantly to center it in the donut hole
-      const textGroupOffset = baseFontSize * 1.5; // Move up by 1.5x the base font size
+      // Move the entire text group up much more significantly to truly center it in the donut hole
+      const textGroupOffset = baseFontSize * 3.5; // Much larger offset to move way up
       
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       
-      // Draw "Total" text centered, positioned above center but moved up as a group
+      // Draw "Total" text centered, positioned above center but moved way up as a group
       ctx.fillStyle = '#666';
       ctx.font = `${titleFontSize}px sans-serif`;
-      ctx.fillText('Total', centerX, (centerY - textGroupOffset) - scoreFontSize * 0.3);
+      ctx.fillText('Total', centerX, (centerY - textGroupOffset) - scoreFontSize * 0.5);
       
-      // Draw the percentage centered, positioned below Total but moved up as a group
+      // Draw the percentage centered, positioned below Total with more spacing
       ctx.fillStyle = '#000';
       ctx.font = `bold ${scoreFontSize}px sans-serif`;
-      ctx.fillText(`${chartData.overallScore}%`, centerX, (centerY - textGroupOffset) + titleFontSize * 0.5);
+      ctx.fillText(`${chartData.overallScore}%`, centerX, (centerY - textGroupOffset) + titleFontSize * 1.2);
       
       ctx.save();
     }
