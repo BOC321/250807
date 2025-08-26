@@ -17,11 +17,12 @@ const DonutChart = ({
     const data = [];
     const backgroundColor = [];
     const borderColor = [];
+    const patterns = ['solid', 'dots', 'stripes', 'waves', 'grid']; // Different visual patterns
     
     let totalScore = 0;
     let totalCategories = 0;
 
-    Object.entries(categoryScores).forEach(([categoryTitle, score]) => {
+    Object.entries(categoryScores).forEach(([categoryTitle, score], index) => {
       const percentage = Math.round(score * 100);
       
       // Find the category to get its ID for score ranges
@@ -37,10 +38,12 @@ const DonutChart = ({
         displayLabel = categoryTitle.substring(0, 12) + '...';
       }
       
-      labels.push(`${displayLabel} ${percentage}%`);
+      // Add pattern indicator to label for better distinction
+      const patternIcon = ['●', '◆', '▲', '■', '★'][index % 5];
+      labels.push(`${patternIcon} ${displayLabel} ${percentage}%`);
       data.push(percentage);
       backgroundColor.push(range ? `${range.color}80` : '#6c757d80'); // Add transparency
-      borderColor.push(range ? range.color : '#6c757d');
+      borderColor.push('#ffffff'); // White borders for clear separation
       
       totalScore += percentage;
       totalCategories++;
@@ -56,8 +59,9 @@ const DonutChart = ({
           data,
           backgroundColor,
           borderColor,
-          borderWidth: 2,
-          hoverBorderWidth: 3,
+          borderWidth: 3, // Thicker white borders for better separation
+          hoverBorderWidth: 4,
+          spacing: 2, // Add spacing between segments
         },
       ],
       overallScore
@@ -73,10 +77,35 @@ const DonutChart = ({
       legend: {
         position: 'bottom',
         labels: {
-          padding: 15,
+          padding: 20,
           usePointStyle: true,
+          pointStyle: 'rect', // Use rectangles instead of circles for better distinction
           font: {
-            size: 12
+            size: 14,
+            weight: 'bold'
+          },
+          boxWidth: 15,
+          boxHeight: 15,
+          // Custom legend item generator for better visual distinction
+          generateLabels: function(chart) {
+            const data = chart.data;
+            if (data.labels.length && data.datasets.length) {
+              return data.labels.map((label, i) => {
+                const dataset = data.datasets[0];
+                const backgroundColor = dataset.backgroundColor[i];
+                const borderColor = dataset.borderColor[i];
+                
+                return {
+                  text: label,
+                  fillStyle: backgroundColor,
+                  strokeStyle: borderColor,
+                  lineWidth: 2,
+                  hidden: false,
+                  index: i
+                };
+              });
+            }
+            return [];
           }
         }
       },
@@ -86,11 +115,17 @@ const DonutChart = ({
     },
     elements: {
       arc: {
-        borderWidth: 2
+        borderWidth: 3, // Thicker borders for better separation
+        borderColor: '#ffffff' // White borders
       }
     },
     interaction: {
       intersect: false // Disable click interactions as requested
+    },
+    layout: {
+      padding: {
+        bottom: 10
+      }
     }
   };
 
@@ -127,28 +162,76 @@ const DonutChart = ({
       width: '100%', 
       maxWidth: size, 
       margin: '0 auto',
+      padding: '1rem',
+      borderRadius: '8px',
+      backgroundColor: '#f8f9fa',
+      border: '1px solid #e9ecef',
       // Responsive adjustments for mobile
       '@media (max-width: 768px)': {
         maxWidth: '100%',
-        padding: '0 1rem'
+        padding: '0.5rem'
       }
     }}>
       {showTitle && (
         <h3 style={{ 
           textAlign: 'center', 
           marginBottom: '1rem',
-          fontSize: '1.1rem',
-          color: '#333'
+          fontSize: '1.2rem',
+          color: '#333',
+          fontWeight: 'bold'
         }}>
           Score Overview
         </h3>
       )}
+      
+      {/* Visual guide for segment distinction */}
+      <div style={{
+        textAlign: 'center',
+        fontSize: '0.85rem',
+        color: '#666',
+        marginBottom: '0.5rem',
+        fontStyle: 'italic'
+      }}>
+        Each segment is separated by white borders for clarity
+      </div>
+      
       <div style={{ height: size, position: 'relative' }}>
         <Doughnut 
           data={chartData} 
           options={options} 
           plugins={[centerTextPlugin]}
         />
+      </div>
+      
+      {/* Additional visual legend with patterns */}
+      <div style={{
+        marginTop: '1rem',
+        padding: '0.75rem',
+        backgroundColor: '#ffffff',
+        borderRadius: '6px',
+        border: '1px solid #dee2e6'
+      }}>
+        <div style={{
+          fontSize: '0.9rem',
+          fontWeight: 'bold',
+          marginBottom: '0.5rem',
+          color: '#495057'
+        }}>
+          Visual Guide:
+        </div>
+        <div style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '0.5rem',
+          fontSize: '0.8rem',
+          color: '#6c757d'
+        }}>
+          <span>● Solid segments</span>
+          <span>◆ Diamond markers</span>
+          <span>▲ Triangle markers</span>
+          <span>■ Square markers</span>
+          <span>★ Star markers</span>
+        </div>
       </div>
     </div>
   );
