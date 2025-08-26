@@ -282,33 +282,10 @@ function buildHtmlReport(params: {
           return segment;
         });
         
-        // Create individual segment divs using transform rotation
-        const segmentDivs = segments.map((segment, index) => {
-          const startAngle = (segment.startPercentage / 100) * 360;
-          const segmentAngle = (segment.percentage / 100) * 360;
-          
-          // Create a pie slice using border method
-          return `
-            <div style="
-              position: absolute;
-              top: 0;
-              left: 0;
-              width: 200px;
-              height: 200px;
-              border-radius: 50%;
-              background: conic-gradient(
-                from ${startAngle}deg,
-                ${segment.color} 0deg ${segmentAngle}deg,
-                transparent ${segmentAngle}deg 360deg
-              );
-              mask: radial-gradient(circle at center, transparent 30%, black 30%, black 50%, transparent 50%);
-              -webkit-mask: radial-gradient(circle at center, transparent 30%, black 30%, black 50%, transparent 50%);
-            "></div>`;
-        }).join('');
+
         
         // Fallback: use simple pie chart approach
-        const pieSegments = segments.map((segment, index) => {
-          const size = Math.max(10, (segment.percentage / 100) * 300); // Scale size
+        const pieSegments = segments.map((segment) => {
           return `
             <div style="
               display: flex;
@@ -342,14 +319,7 @@ function buildHtmlReport(params: {
             </div>`;
         }).join('');
         
-        // Create legend items
-        const legendItems = segments.map(segment => {
-          return `
-            <div style="display: flex; align-items: center; margin-bottom: 6px; font-size: 12px;">
-              <div style="width: 12px; height: 12px; background-color: ${segment.color}; margin-right: 8px; border-radius: 2px; flex-shrink: 0;"></div>
-              <span style="flex: 1;">${escapeHtml(segment.name)} ${segment.percentage.toFixed(1)}%</span>
-            </div>`;
-        }).join('');
+
         
         sectionsHtml += `
   <section style="margin-top:16px; page-break-inside: avoid;">
