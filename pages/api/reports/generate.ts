@@ -263,7 +263,7 @@ function buildHtmlReport(params: {
         
         // Calculate segments with angles
         let cumulativePercentage = 0;
-        const segments = categoryEntries.map(([name, pct], index) => {
+        const segments = categoryEntries.map(([name, pct]) => {
           const range = categoryRangesByTitle[name];
           const color = range?.color || template.branding.accentColor;
           const percentage = Number(pct);
